@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(82,70,184,0.08);">
+    
+    <a href="{% url 'mis_tramites' %}" style="color: var(--p600); font-weight: 600; text-decoration: none;">← Volver a mis trámites</a>
+    
+    <h2 style="margin-top: 20px; font-family: 'Sora', sans-serif; color: var(--text);">Agendar Cita en Ventanilla</h2>
+    <p style="color: var(--text2);"><strong>Expediente:</strong> {{ solicitud.folio }}</p>
+    <p style="color: var(--text2);"><strong>Trámite:</strong> {{ solicitud.tramite.nombre }}</p>
+    <p style="color: var(--text2);"><strong>Dependencia:</strong> {{ solicitud.tramite.direccion.nombre }}</p>
+    
+    <hr style="border: 0; border-top: 1px solid var(--p100); margin: 20px 0;">
+
+    <!-- CUADRO DE HORARIOS DE LA DEPENDENCIA -->
+    <div style="background: var(--surface); border: 1px solid var(--p200); padding: 18px; border-radius: 8px; margin-bottom: 25px;">
+        <h4 style="margin-top: 0; margin-bottom: 10px; color: var(--p800); font-family: 'Sora', sans-serif;">🕒 Horarios de Atención de esta Dependencia:</h4>
+        <ul style="margin-bottom: 0; font-size: 14px; color: var(--text2); padding-left: 20px;">
+            {% for horario in horarios %}
+                <li><strong>{{ horario.get_dia_semana_display }}:</strong> de {{ horario.hora_inicio|time:"H:i" }} a {{ horario.hora_fin|time:"H:i" }} (Citas cada {{ horario.duracion_cita_minutos }} min)</li>
+            {% empty %}
+                <li>No hay horarios configurados. Por favor contacta a soporte.</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- FORMULARIO PARA ELEGIR FECHA Y HORA -->
+    <form method="POST">
+        {% csrf_token %}
+        
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 25px;">
+            <div style="flex: 1; min-width: 200px;">
+                <label for="fecha" style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--text);">Selecciona el Día:</label>
+                <!-- El input type="date" levanta el calendario nativo del navegador -->
+                <input type="date" id="fecha" name="fecha" required style="padding: 12px; border-radius: 8px; border: 1.5px solid var(--p200); width: 100%; font-family: 'Inter', sans-serif; color: var(--text); outline: none;">
+            </div>
+            
+            <div style="flex: 1; min-width: 200px;">
+                <label for="hora" style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--text);">Selecciona la Hora:</label>
+                <!-- El input type="time" permite seleccionar la hora -->
+                <input type="time" id="hora" name="hora" required style="padding: 12px; border-radius: 8px; border: 1.5px solid var(--p200); width: 100%; font-family: 'Inter', sans-serif; color: var(--text); outline: none;">
+            </div>
+        </div>
+
+        <div style="text-align: right;">
+            <button type="submit" style="background: var(--teal); color: white; padding: 14px 28px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.2s;">
+                ✅ Confirmar Cita
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock content %}

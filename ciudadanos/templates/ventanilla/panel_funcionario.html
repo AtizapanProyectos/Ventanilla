@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .panel-wrap { max-width: 1180px; margin: 0 auto; padding: 36px clamp(1rem,4vw,3rem) 70px; }
+
+    .panel-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 26px; background: var(--white); padding: 22px 30px;
+        border-radius: var(--r-lg); border: 1px solid var(--card-border);
+        box-shadow: 0 2px 10px rgba(82,70,184,.05);
+    }
+    .panel-eyebrow {
+        font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+        color: var(--p500); display: block; margin-bottom: 5px;
+    }
+    .panel-header h1 {
+        font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 700;
+        color: var(--p900); letter-spacing: -.02em; margin: 0;
+    }
+    .back-link {
+        color: var(--p600); text-decoration: none; font-weight: 600; font-size: 13.5px;
+        display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+        border: 1.5px solid var(--p200); border-radius: var(--r-sm); transition: all .18s;
+    }
+    .back-link:hover { background: var(--p600); color: var(--white); border-color: var(--p600); }
+
+    .section-box {
+        background: var(--white); padding: 28px 30px; border-radius: var(--r-lg);
+        margin-bottom: 26px; border: 1px solid var(--card-border);
+        box-shadow: 0 2px 10px rgba(82,70,184,.05);
+    }
+    .section-title {
+        font-family: 'Sora', sans-serif; font-size: 16px; font-weight: 700; color: var(--p900);
+        margin: 0 0 22px 0; padding-bottom: 12px; border-bottom: 2px solid var(--p50);
+        display: flex; align-items: center; gap: 9px;
+    }
+    .section-title .count-badge {
+        font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 700;
+        background: var(--p100); color: var(--p700); padding: 2px 10px; border-radius: 20px;
+    }
+
+    /* ── AGENDA ── */
+    .citas-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .citas-col-title {
+        font-family: 'Sora', sans-serif; font-size: 12.5px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .05em; margin: 0 0 14px 0;
+        display: flex; align-items: center; gap: 7px;
+    }
+    .citas-col-title .dot { width: 7px; height: 7px; border-radius: 50%; }
+
+    .cita-card {
+        display: flex; background: var(--white); border-radius: var(--r-md);
+        margin-bottom: 11px; border: 1px solid var(--card-border);
+        box-shadow: 0 1px 4px rgba(18,16,58,.04); overflow: hidden;
+    }
+    .cita-date-block {
+        flex: 0 0 58px; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; padding: 8px 4px; text-align: center;
+    }
+    .cita-date-block .d { font-family: 'Sora', sans-serif; font-size: 19px; font-weight: 700; line-height: 1; }
+    .cita-date-block .m { font-size: 9.5px; font-weight: 700; text-transform: uppercase; margin-top: 3px; }
+    .cita-date-block .h { font-size: 10px; font-weight: 600; margin-top: 4px; opacity: .85; }
+
+    .cita-body { padding: 12px 14px 12px 2px; min-width: 0; flex: 1; }
+    .cita-body h4 { margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: var(--p900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cita-body p { margin: 0; font-size: 11.5px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cita-body .folio-mini { font-size: 10px; color: var(--text3); font-family: monospace; margin-top: 3px; }
+
+    .cita-hoy .cita-date-block  { background: var(--orange-bg); color: var(--orange); }
+    .cita-prox .cita-date-block { background: var(--sky-bg); color: var(--sky); }
+    .cita-hist .cita-date-block { background: var(--p50); color: var(--text3); }
+    .cita-hist { opacity: .78; }
+
+    .empty-text {
+        font-size: 12.5px; color: var(--text3); font-style: italic; margin: 0;
+        text-align: center; padding: 20px 8px; border: 1px dashed var(--card-border); border-radius: var(--r-sm);
+    }
+
+    /* ── TABLA ── */
+    .table-scroll { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid var(--p50); text-align: left; font-size: 13px; }
+    th {
+        background: var(--p900); color: var(--white); font-family: 'Sora', sans-serif;
+        font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: .05em;
+    }
+    th:first-child { border-top-left-radius: var(--r-sm); }
+    th:last-child { border-top-right-radius: var(--r-sm); }
+    tbody tr:hover { background-color: var(--p50); }
+
+    .folio-chip {
+        font-family: monospace; font-size: 12px; font-weight: 700; color: var(--p700);
+        background: var(--p50); padding: 3px 9px; border-radius: 6px; border: 1px solid var(--p100);
+    }
+
+    .btn-revisar {
+        background: var(--p600); color: var(--white); padding: 8px 15px; text-decoration: none;
+        border-radius: var(--r-sm); font-weight: 600; font-size: 12.5px; display: inline-block;
+        transition: background .18s;
+    }
+    .btn-revisar:hover { background: var(--p700); }
+
+    .cita-badge {
+        background: var(--green-bg); color: var(--green); padding: 3px 9px; border-radius: 6px;
+        font-weight: 700; font-size: 10.5px; display: inline-block; margin-top: 6px;
+    }
+    .sin-cita { font-size: 11px; color: var(--amber); font-weight: 600; display: block; margin-top: 6px; }
+
+    .status-tag {
+        font-weight: 700; font-size: 11.5px; padding: 4px 11px; border-radius: 20px; display: inline-block;
+    }
+    .status-pendiente { color: var(--amber); background: var(--amber-bg); }
+    .status-aprobado   { color: var(--green); background: var(--green-bg); }
+    .status-retrasado  { color: var(--pink); background: var(--pink-bg); }
+
+    @media (max-width: 900px) {
+        .citas-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="panel-wrap">
+
+    <div class="panel-header">
+        <div>
+            <span class="panel-eyebrow">Área administrativa</span>
+            <h1>Panel Institucional · Servidores Públicos</h1>
+        </div>
+        <a href="{% url 'inicio' %}" class="back-link">Volver al portal ciudadano</a>
+    </div>
+
+    <!-- SECCIÓN 1: AGENDA DE VENTANILLA -->
+    <div class="section-box">
+        <h2 class="section-title">Agenda de Ventanilla</h2>
+
+        <div class="citas-grid">
+
+            <!-- CITAS DE HOY -->
+            <div>
+                <h3 class="citas-col-title" style="color: var(--orange);">
+                    <span class="dot" style="background: var(--orange);"></span>Jornada de Hoy
+                </h3>
+                {% for cita in citas_hoy %}
+                    <div class="cita-card cita-hoy">
+                        <div class="cita-date-block">
+                            <span class="d">{{ cita.hora|time:"H:i" }}</span>
+                            <span class="m">Hoy</span>
+                        </div>
+                        <div class="cita-body">
+                            <h4>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h4>
+                            <p>{{ cita.tramite.nombre }}</p>
+                            <p class="folio-mini">Folio {{ cita.folio_cita }}</p>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="empty-text">No existen citas programadas para el día de hoy.</p>
+                {% endfor %}
+            </div>
+
+            <!-- PRÓXIMAS CITAS -->
+            <div>
+                <h3 class="citas-col-title" style="color: var(--sky);">
+                    <span class="dot" style="background: var(--sky);"></span>Próximas
+                </h3>
+                {% for cita in citas_futuras %}
+                    <div class="cita-card cita-prox">
+                        <div class="cita-date-block">
+                            <span class="d">{{ cita.fecha|date:"d" }}</span>
+                            <span class="m">{{ cita.fecha|date:"M" }}</span>
+                            <span class="h">{{ cita.hora|time:"H:i" }}</span>
+                        </div>
+                        <div class="cita-body">
+                            <h4>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h4>
+                            <p>{{ cita.tramite.nombre }}</p>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="empty-text">No hay registros de citas futuras.</p>
+                {% endfor %}
+            </div>
+
+            <!-- CITAS PASADAS -->
+            <div>
+                <h3 class="citas-col-title" style="color: var(--text3);">
+                    <span class="dot" style="background: var(--text3);"></span>Historial Pasado
+                </h3>
+                {% for cita in citas_pasadas %}
+                    <div class="cita-card cita-hist">
+                        <div class="cita-date-block">
+                            <span class="d">{{ cita.fecha|date:"d" }}</span>
+                            <span class="m">{{ cita.fecha|date:"M" }}</span>
+                        </div>
+                        <div class="cita-body">
+                            <h4>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h4>
+                            <p>{{ cita.tramite.nombre }}</p>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="empty-text">Sin registros en el historial previo.</p>
+                {% endfor %}
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: BANDEJA DE SOLICITUDES -->
+    <div class="section-box">
+        <h2 class="section-title">Bandeja de Solicitudes <span style="font-weight:500; color: var(--text3); font-size: 13px; text-transform:none; letter-spacing:0;">· Validación de documentación</span></h2>
+
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Ciudadano</th>
+                        <th>Trámite Solicitado</th>
+                        <th>Fecha de Ingreso</th>
+                        <th>Estatus General</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sol in solicitudes %}
+                    <tr>
+                        <td><span class="folio-chip">{{ sol.folio }}</span></td>
+                        <td>{{ sol.ciudadano.nombre }} {{ sol.ciudadano.apellidos }}</td>
+                        <td>{{ sol.tramite.nombre }}</td>
+                        <td>{{ sol.fecha_creacion|date:"d M Y - H:i" }}</td>
+                        <td>
+                            <span class="status-tag {% if sol.estado == 'Aprobado' %}status-aprobado{% elif sol.estado == 'Rechazado' %}status-retrasado{% else %}status-pendiente{% endif %}">
+                                {{ sol.estado }}
+                            </span>
+
+                            {% if sol.estado == 'Aprobado' and sol.cita_agendada %}
+                                <span class="cita-badge">Cita: {{ sol.cita_agendada.fecha|date:"d M Y" }}</span>
+                            {% elif sol.estado == 'Aprobado' %}
+                                <span class="sin-cita">(Pendiente de agendar cita)</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'revisar_solicitud' sol.id %}" class="btn-revisar">Validar Docs</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text3); padding: 30px;">No se encuentran solicitudes registradas en el sistema.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock content %}

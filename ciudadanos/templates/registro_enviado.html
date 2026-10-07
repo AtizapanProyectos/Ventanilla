@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="wave-auth-bg">
+  <div class="auth-box" style="max-width: 480px; padding: 40px; background: var(--white); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); text-align: center;">
+    
+    <div style="width: 60px; height: 60px; background: var(--teal-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+      <svg viewBox="0 0 24 24" width="30" height="30" stroke="var(--teal)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+    </div>
+    
+    <h2 style="font-size: 22px; color: var(--text); margin-bottom: 12px;">¡Verifica tu correo!</h2>
+    <p style="color: var(--p600); font-size: 14.5px; line-height: 1.6;">
+      Hemos enviado un enlace de activación a la dirección <strong>{{ email }}</strong>.
+    </p>
+    <p style="color: var(--p600); font-size: 13px; margin-top: 16px; background: var(--p50); padding: 12px; border-radius: 8px;">
+      <strong>Nota:</strong> Haz clic en el enlace para validar tu cuenta. Si no lo ves en tu bandeja principal, revisa la carpeta de SPAM o Correo no deseado.
+    </p>
+    
+    <div style="margin-top: 24px;">
+      <a href="{% url 'inicio' %}" class="btn-solid" style="display: block; padding: 14px; text-decoration: none;">Volver al inicio</a>
+    </div>
+    
+  </div>
+</div>
+{% endblock content %}

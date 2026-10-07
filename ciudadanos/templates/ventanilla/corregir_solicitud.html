@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* CONTENEDOR PRINCIPAL */
+    .detail-container { max-width: 900px; margin: 0 auto; padding: 40px clamp(1rem,4vw,3rem) 80px; font-family: 'Inter', sans-serif; color: var(--text); }
+
+    /* CABECERA */
+    .detail-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; gap: 20px; flex-wrap: wrap; }
+    .detail-header h1 { font-family: 'Sora', sans-serif; font-size: 24px; margin: 0 0 6px 0; color: var(--p900); letter-spacing: -.02em; }
+    .detail-header .tramite-sub { color: var(--text2); font-size: 14px; }
+    .btn-back {
+        display: inline-flex; align-items: center; gap: 6px; padding: 9px 17px; border-radius: var(--r-sm);
+        text-decoration: none; font-size: 13px; font-weight: 600; background: var(--white);
+        border: 1px solid var(--p200); color: var(--p700); transition: background .18s;
+    }
+    .btn-back:hover { background: var(--p50); }
+
+    /* ── TIMELINE ── */
+    .timeline-card {
+        background: var(--white); border-radius: var(--r-lg); padding: 34px 46px 30px;
+        box-shadow: 0 4px 18px rgba(82,70,184,.06); border: 1px solid var(--card-border); margin-bottom: 32px;
+    }
+    .timeline-label {
+        font-size: 12px; color: var(--text3); font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; display: block; margin-bottom: 30px;
+    }
+
+    .timeline-track { display: flex; justify-content: space-between; position: relative; }
+
+    .timeline-track .track-line-bg {
+        content: ''; position: absolute; top: 21px; left: 8%; right: 8%; height: 4px;
+        background: var(--p100); border-radius: 4px; z-index: 1;
+    }
+    .timeline-track .track-line-fill {
+        position: absolute; top: 21px; left: 8%; height: 4px;
+        border-radius: 4px; z-index: 1; transition: width .3s ease;
+        background: var(--p600);
+    }
+    .track-line-fill.fill-half { width: 42%; }
+    .track-line-fill.fill-full { width: 84%; background: var(--green); }
+    .track-line-fill.fill-full.fill-error { background: var(--pink); }
+
+    .timeline-step {
+        position: relative; z-index: 2; text-align: center; flex: 1;
+        display: flex; flex-direction: column; align-items: center;
+    }
+    .step-icon {
+        width: 44px; height: 44px; border-radius: 50%; background: var(--p100);
+        border: 4px solid var(--white); display: flex; align-items: center; justify-content: center;
+        margin-bottom: 12px; color: var(--white); box-shadow: 0 0 0 1px var(--card-border);
+    }
+    .step-text { font-size: 12.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+    .step-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+    .step-complete .step-icon { background: var(--green); box-shadow: none; }
+    .step-complete .step-text { color: var(--green); }
+    .step-active .step-icon { background: var(--p600); box-shadow: 0 0 0 5px var(--p100); }
+    .step-active .step-text { color: var(--p700); }
+    .step-error .step-icon { background: var(--pink); box-shadow: 0 0 0 5px var(--pink-bg); }
+    .step-error .step-text { color: var(--pink); }
+
+    /* ── DOCUMENTOS ── */
+    .docs-section-title {
+        font-family: 'Sora', sans-serif; font-size: 17px; font-weight: 700; color: var(--p900);
+        margin-bottom: 18px; display: flex; align-items: center; gap: 9px;
+    }
+    .docs-grid { display: flex; flex-direction: column; gap: 16px; }
+
+    .doc-card {
+        background: var(--white); border-radius: var(--r-md); padding: 20px 24px;
+        border-left: 5px solid var(--p200); box-shadow: 0 2px 10px rgba(82,70,184,.05);
+        display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--card-border); border-left-width: 5px;
+    }
+    .doc-aprobado  { border-left-color: var(--green); }
+    .doc-pendiente { border-left-color: var(--amber); }
+    .doc-rechazado { border-left-color: var(--pink); background: #fffbfc; }
+
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+    .doc-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin: 0; line-height: 1.4; }
+    .doc-status {
+        display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px;
+        font-size: 11px; font-weight: 700; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    }
+    .status-aprobado  { background: var(--green-bg); color: var(--green); }
+    .status-pendiente { background: var(--amber-bg); color: var(--amber); }
+    .status-rechazado { background: var(--pink-bg); color: var(--pink); }
+
+    .doc-desc { color: var(--text3); font-size: 13px; margin: 0; line-height: 1.5; }
+
+    .obs-box {
+        background: var(--pink-bg); border: 1px solid rgba(196,74,114,.25); padding: 14px 16px;
+        border-radius: var(--r-sm); color: var(--pink); font-size: 13px; line-height: 1.55;
+    }
+    .obs-box strong { color: var(--text); }
+
+    .file-input-wrapper { margin-top: 4px; }
+    .file-input-wrapper label { font-size: 13px; font-weight: 600; color: var(--text); display: block; margin-bottom: 8px; }
+    .custom-file-input {
+        width: 100%; padding: 11px; background: var(--surface); border: 1.5px dashed var(--p400);
+        border-radius: var(--r-sm); color: var(--text2); font-size: 13px; cursor: pointer; transition: background .18s;
+    }
+    .custom-file-input:hover { background: var(--p50); }
+    .custom-file-input::file-selector-button {
+        background: var(--p100); color: var(--p700); border: none; padding: 8px 16px; border-radius: 6px;
+        font-weight: 600; cursor: pointer; margin-right: 15px; transition: background .18s;
+    }
+    .custom-file-input::file-selector-button:hover { background: var(--p200); }
+
+    .btn-submit {
+        background: var(--teal); color: var(--white); padding: 14px 30px; border: none; border-radius: var(--r-sm);
+        font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity .18s;
+        display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-submit:hover { opacity: .9; }
+
+    @media (max-width: 620px) {
+        .timeline-card { padding: 26px 18px 22px; }
+        .timeline-track .track-line-bg, .timeline-track .track-line-fill { left: 14%; right: 14%; }
+        .step-text { font-size: 10.5px; }
+        .doc-card { padding: 16px 18px; }
+    }
+</style>
+
+<div class="detail-container">
+
+    <div class="detail-header">
+        <div>
+            <h1>Expediente: {{ solicitud.folio }}</h1>
+            <span class="tramite-sub">Trámite: <strong>{{ solicitud.tramite.nombre }}</strong></span>
+        </div>
+        <a href="{% url 'mis_tramites' %}" class="btn-back">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Volver al Panel
+        </a>
+    </div>
+
+    <!-- WIDGET DE RECORRIDO (TIMELINE) -->
+    <div class="timeline-card">
+        <span class="timeline-label">Estado General del Trámite</span>
+
+        <div class="timeline-track">
+            <div class="track-line-bg"></div>
+            <div class="track-line-fill {% if solicitud.estado == 'Aprobado' %}fill-full{% elif solicitud.estado == 'Rechazado' %}fill-full fill-error{% else %}fill-half{% endif %}"></div>
+
+            <!-- Paso 1: Recepción -->
+            <div class="timeline-step step-complete">
+                <div class="step-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <span class="step-text">Recepción</span>
+            </div>
+
+            <!-- Paso 2: Revisión -->
+            <div class="timeline-step {% if solicitud.estado == 'Pendiente' or solicitud.estado == 'En proceso' %}step-active{% else %}step-complete{% endif %}">
+                <div class="step-icon">
+                    {% if solicitud.estado == 'Pendiente' or solicitud.estado == 'En proceso' %}
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    {% else %}
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                    {% endif %}
+                </div>
+                <span class="step-text">Revisión</span>
+            </div>
+
+            <!-- Paso 3: Resolución (Puede ser Aprobado, Pendiente o Error) -->
+            <div class="timeline-step {% if solicitud.estado == 'Rechazado' %}step-error{% elif solicitud.estado == 'Aprobado' %}step-complete{% endif %}">
+                <div class="step-icon">
+                    {% if solicitud.estado == 'Rechazado' %}
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {% elif solicitud.estado == 'Aprobado' %}
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+                    {% endif %}
+                </div>
+                <span class="step-text">Dictamen</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTADO DE DOCUMENTOS -->
+    <div class="docs-section-title">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--p600)" stroke-width="2.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Documentación del Expediente
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="docs-grid">
+            {% for archivo in archivos %}
+                <div class="doc-card {% if archivo.estado_validacion == 'Rechazado' %}doc-rechazado{% elif archivo.estado_validacion == 'Aprobado' %}doc-aprobado{% else %}doc-pendiente{% endif %}">
+
+                    <div class="doc-header">
+                        <h4 class="doc-title">{{ archivo.requisito.descripcion }}</h4>
+
+                        {% if archivo.estado_validacion == 'Rechazado' %}
+                            <span class="doc-status status-rechazado">Observaciones</span>
+                        {% elif archivo.estado_validacion == 'Aprobado' %}
+                            <span class="doc-status status-aprobado">Validado</span>
+                        {% else %}
+                            <span class="doc-status status-pendiente">En Revisión</span>
+                        {% endif %}
+                    </div>
+
+                    {% if archivo.estado_validacion == 'Rechazado' %}
+                        <div class="obs-box">
+                            <strong>Motivo del rechazo:</strong> {{ archivo.observaciones }}
+                        </div>
+
+                        <div class="file-input-wrapper">
+                            <label>Adjuntar documento corregido:</label>
+                            <input type="file" name="doc_corregido_{{ archivo.id }}" class="custom-file-input" required>
+                        </div>
+
+                    {% elif archivo.estado_validacion == 'Aprobado' %}
+                        <p class="doc-desc">El documento cumple con todos los requisitos establecidos.</p>
+                    {% else %}
+                        <p class="doc-desc">El documento fue recibido y se encuentra en fila de revisión.</p>
+                    {% endif %}
+
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if solicitud.estado == 'Rechazado' %}
+            <div style="text-align: right; margin-top: 28px;">
+                <button type="submit" class="btn-submit">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Enviar Correcciones a Revisión
+                </button>
+            </div>
+        {% endif %}
+    </form>
+
+</div>
+{% endblock content %}

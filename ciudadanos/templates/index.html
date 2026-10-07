@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-glass">
+      <div class="burbuja-difusa burbuja-textos">
+        <span class="hero-eyebrow">Gobierno Municipal · Portal Ciudadano</span>
+        <h1>¿Qué trámite<br>necesitas hacer <em>hoy</em>?</h1>
+        <p class="hero-sub">Encuentra, inicia y da seguimiento a tus trámites municipales en un solo lugar.</p>
+      </div>
+      <div class="burbuja-difusa burbuja-buscador">
+        <div class="search-wrap">
+          <div class="search-box">
+            <input id="q" type="text" placeholder="Buscar trámite, servicio o dependencia…" autocomplete="off"/>
+            <button class="btn-search" onclick="buscar()">
+              <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Buscar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap sec">
+  <div class="cats-grid">
+    <a href="#" class="cat cat-amb">
+      <div class="cat-icon-wrap" style="background:var(--green-bg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 8C8 10 5.9 16.17 3.82 19c0 0 1.18-6 3.18-8 0 0-4 2-5 6 0 0 2.17-2.17 5-3 0 0-3 4-3 7h16s0-5-3-9c0 0 2 4 1 9"/><path d="M12 12c0 0-1-4-4-6"/>
+        </svg>
+      </div>
+      <span class="cat-name">Medio Ambiente</span>
+      <span class="cat-desc">Árboles, residuos, contaminación</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+    <a href="#" class="cat cat-pc">
+      <div class="cat-icon-wrap" style="background:var(--orange-bg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <span class="cat-name">Protección Civil</span>
+      <span class="cat-desc">Prevención, planes y autorizaciones</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+    <a href="#" class="cat cat-agua">
+      <div class="cat-icon-wrap" style="background:var(--sky-bg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+        </svg>
+      </div>
+      <span class="cat-name">Agua y Servicios</span>
+      <span class="cat-desc">Descargas, tomas y fugas</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+    <a href="#" class="cat cat-const">
+      <div class="cat-icon-wrap" style="background:var(--amber-bg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="12" width="18" height="9" rx="1"/><path d="M8 12V7h8v5"/><line x1="2" y1="12" x2="22" y2="12"/>
+        </svg>
+      </div>
+      <span class="cat-name">Construcción y Desarrollo</span>
+      <span class="cat-desc">Licencias y uso de suelo</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+    <a href="#" class="cat cat-lic">
+      <div class="cat-icon-wrap" style="background:var(--p100);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--p600)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/>
+        </svg>
+      </div>
+      <span class="cat-name">Licencias y Permisos</span>
+      <span class="cat-desc">Comercio, anuncios y eventos</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+    <a href="#" class="cat cat-seg">
+      <div class="cat-icon-wrap" style="background:var(--green-bg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14.5 14.5"/>
+        </svg>
+      </div>
+      <span class="cat-name">Seguridad</span>
+      <span class="cat-desc">Seguridad pública y vialidad</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+    <a href="#" class="cat cat-ds">
+      <div class="cat-icon-wrap" style="background:var(--pink-bg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <span class="cat-name">Desarrollo Social</span>
+      <span class="cat-desc">Programas, apoyos y servicios</span>
+      <div class="cat-arrow"><svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></div>
+    </a>
+  </div>
+</section>
+
+<section class="wrap sec" style="padding-bottom:0;">
+  <div class="sec-header">
+    <h2 class="sec-title">Trámites más solicitados</h2>
+    <a href="#" class="sec-link">Ver catálogo completo <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>
+  </div>
+  <div class="tramites-grid">
+    <div class="tcard">
+      <div class="tcard-accent" style="background:var(--green);"></div>
+      <div class="tcard-body">
+        <div class="tcard-header">
+          <div class="tcard-icon" style="background:var(--green-bg);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+              <path d="M17 8C8 10 5.9 16.17 3.82 19c0 0 1.18-6 3.18-8 0 0-4 2-5 6 0 0 2.17-2.17 5-3 0 0-3 4-3 7h16s0-5-3-9"/>
+            </svg>
+          </div>
+          <div>
+            <div class="tcard-title">Autorización para la poda de árboles</div>
+            <div class="tcard-dep">
+              <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Protección Civil, Bomberos y Medio Ambiente
+            </div>
+          </div>
+        </div>
+        <div class="tcard-pills">
+          <span class="pill pill-time">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            5 minutos
+          </span>
+          <span class="pill pill-cost">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+            Gratuito
+          </span>
+          <span class="pill pill-mode">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            En línea
+          </span>
+        </div>
+        <div class="tcard-footer">
+          <button class="btn-ghost">Ver requisitos</button>
+          <button class="btn-solid">
+            Iniciar trámite
+            <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="tcard-accent" style="background:var(--sky);"></div>
+      <div class="tcard-body">
+        <div class="tcard-header">
+          <div class="tcard-icon" style="background:var(--sky-bg);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="tcard-title">Registro y/o Revalidación de Descarga de Aguas Residuales</div>
+            <div class="tcard-dep">
+              <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Organismo de Agua Municipal
+            </div>
+          </div>
+        </div>
+        <div class="tcard-pills">
+          <span class="pill pill-time">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            10 minutos
+          </span>
+          <span class="pill pill-var">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+            Costo variable
+          </span>
+          <span class="pill pill-mode">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            En línea
+          </span>
+        </div>
+        <div class="tcard-footer">
+          <button class="btn-ghost">Ver requisitos</button>
+          <button class="btn-solid">
+            Iniciar trámite
+            <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="tcard-accent" style="background:var(--amber);"></div>
+      <div class="tcard-body">
+        <div class="tcard-header">
+          <div class="tcard-icon" style="background:var(--amber-bg);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+              <rect x="3" y="12" width="18" height="9" rx="1"/><path d="M8 12V7h8v5"/><line x1="2" y1="12" x2="22" y2="12"/>
+            </svg>
+          </div>
+          <div>
+            <div class="tcard-title">Licencia de Construcción</div>
+            <div class="tcard-dep">
+              <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Dirección de Obras Públicas
+            </div>
+          </div>
+        </div>
+        <div class="tcard-pills">
+          <span class="pill pill-time">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            15 minutos
+          </span>
+          <span class="pill pill-var">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+            Costo variable
+          </span>
+          <span class="pill pill-mode">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Presencial / En línea
+          </span>
+        </div>
+        <div class="tcard-footer">
+          <button class="btn-ghost">Ver requisitos</button>
+          <button class="btn-solid">
+            Iniciar trámite
+            <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="help-band">
+  <div class="help-inner">
+    <div class="help-item">
+      <div class="help-ico">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div>
+        <div class="help-title">Ahorra tiempo</div>
+        <div class="help-desc">Trámites disponibles las 24 horas, los 7 días de la semana, sin filas.</div>
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-ico">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div>
+        <div class="help-title">Seguro y confiable</div>
+        <div class="help-desc">Tus datos están protegidos con estándares de seguridad gubernamentales.</div>
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-ico">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div>
+        <div class="help-title">Fácil y rápido</div>
+        <div class="help-desc">Pasos guiados y confirmación inmediata en cada trámite que realices.</div>
+      </div>
+    </div>
+    <div class="help-item">
+      <div class="help-ico">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.44 2 2 0 0 1 3.6 1.26h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </div>
+      <div>
+        <div class="help-title">¿Necesitas ayuda?</div>
+        <div class="help-desc">Nuestro equipo de atención ciudadana está listo para orientarte.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

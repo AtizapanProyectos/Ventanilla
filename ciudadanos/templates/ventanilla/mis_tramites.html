@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .dashboard-container { max-width: 1100px; margin: 40px auto; padding: 0 20px; font-family: 'Inter', sans-serif; color: var(--text); }
+    .dash-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; }
+    .dash-header h1 { font-family: 'Sora', sans-serif; font-size: 28px; margin: 0; color: var(--p900); }
+    
+    /* WIDGETS SUPERIORES */
+    .widgets-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .widget-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(82,70,184,0.06); border: 1px solid var(--card-border); display: flex; align-items: flex-start; gap: 16px; }
+    .widget-info h4 { margin: 0 0 6px 0; font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+    .widget-info p { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
+    .widget-info .big-number { font-size: 26px; font-family: 'Sora', sans-serif; font-weight: 700; color: var(--p800); }
+    
+    /* AGRUPACIÓN POR DIRECCIÓN */
+    .dep-section { margin-bottom: 40px; }
+    .dep-title { font-family: 'Sora', sans-serif; font-size: 18px; color: var(--p700); margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--p100); }
+    .tramites-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 20px; }
+    
+    /* TARJETA DE TRÁMITE */
+    .card-tramite { 
+        background: white; 
+        border-radius: 12px; 
+        padding: 24px; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03); 
+        border: 1px solid var(--p100); 
+        display: flex; 
+        flex-direction: column; 
+        gap: 16px; 
+        border-left: 6px solid #ccc;
+    }
+    
+    .border-yellow { border-left-color: #fbc02d; }
+    .border-green { border-left-color: #4caf50; }
+    .border-red { border-left-color: #f44336; }
+
+    .status-pill { display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-yellow { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+    .status-green { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .status-red { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+    /* LÍNEA DE PROGRESO */
+    .progress-track {
+        display: flex;
+        justify-content: space-between;
+        position: relative;
+        margin: 10px 0;
+    }
+    .progress-track::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #e0e0e0;
+        z-index: 1;
+        transform: translateY(-50%);
+    }
+    .progress-step {
+        position: relative;
+        z-index: 2;
+        background: white;
+        padding: 0 8px;
+        text-align: center;
+        font-size: 11px;
+        color: var(--text3);
+    }
+    .step-node {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        margin: 0 auto 4px auto;
+    }
+    .step-active .step-node { background: #2196f3; }
+    .step-complete .step-node { background: #4caf50; }
+    .step-error .step-node { background: #f44336; }
+    .step-active { color: var(--text); font-weight: 600; }
+
+    /* ZONA DE ACCIÓN */
+    .action-zone { background: #faf9ff; padding: 14px; border-radius: 8px; border: 1px dashed var(--p200); }
+    .btn-action { display: inline-block; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; text-align: center; }
+    
+    @media (max-width: 768px) { .tramites-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="dashboard-container">
+    
+    <div class="dash-header">
+        <div>
+            <span style="color: var(--p600); font-weight: 600; font-size: 14px; display: block; margin-bottom: 5px;">Panel de Control</span>
+            <h1>Mi Expediente Ciudadano</h1>
+        </div>
+        <a href="{% url 'inicio' %}" class="btn-action" style="background: white; border: 1px solid var(--p200); color: var(--p700);">
+            Volver al Catálogo
+        </a>
+    </div>
+
+    <!-- RESUMEN -->
+    <div class="widgets-grid">
+        <div class="widget-card">
+            <div class="widget-info">
+                <h4>Expedientes Activos</h4>
+                <div class="big-number">{{ total_tramites }}</div>
+            </div>
+        </div>
+
+        <div class="widget-card" style="border-left: 4px solid var(--teal);">
+            <div class="widget-info">
+                <h4>Próxima Cita Programada</h4>
+                {% if proxima_cita %}
+                    <p style="color: var(--teal); font-weight: 700;">{{ proxima_cita.fecha|date:"d M Y" }}</p>
+                    <p style="font-size: 13px;">Horario: <strong>{{ proxima_cita.hora|time:"H:i" }}</strong> hrs.</p>
+                {% else %}
+                    <p style="color: var(--text3);">Sin citas pendientes.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- AGRUPADO POR DIRECCIÓN -->
+    {% if solicitudes %}
+        {% regroup solicitudes by tramite.direccion as dependencias_list %}
+        
+        {% for dependencia in dependencias_list %}
+        <div class="dep-section">
+            <div class="dep-title">{{ dependencia.grouper.nombre }}</div>
+
+            <div class="tramites-grid">
+                {% for sol in dependencia.list %}
+                <div class="card-tramite {% if sol.estado == 'Aprobado' %}border-green{% elif sol.estado == 'Rechazado' %}border-red{% else %}border-yellow{% endif %}">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        {% if sol.estado == 'Pendiente' or sol.estado == 'En proceso' %}
+                            <span class="status-pill status-yellow">En Revisión</span>
+                        {% elif sol.estado == 'Aprobado' %}
+                            <span class="status-pill status-green">Aprobado</span>
+                        {% elif sol.estado == 'Rechazado' %}
+                            <span class="status-pill status-red">Requiere Atención</span>
+                        {% endif %}
+                        
+                        <span style="font-size: 12px; color: var(--text3);">Ingreso: {{ sol.fecha_creacion|date:"d M Y" }}</span>
+                    </div>
+
+                    <div>
+                        <h3 style="margin: 0 0 4px 0; font-family: 'Sora', sans-serif; font-size: 16px;">{{ sol.tramite.nombre }}</h3>
+                        <span style="font-size: 13px; color: var(--text2);">Folio: <strong style="color: var(--p700);">{{ sol.folio }}</strong></span>
+                    </div>
+
+                    <!-- RECORRIDO DE PROGRESO -->
+                    <div class="progress-track">
+                        <div class="progress-step step-complete">
+                            <div class="step-node"></div>
+                            <span>1. Solicitud</span>
+                        </div>
+                        
+                        <div class="progress-step {% if sol.estado == 'Pendiente' or sol.estado == 'En proceso' %}step-active{% elif sol.estado == 'Aprobado' %}step-complete{% elif sol.estado == 'Rechazado' %}step-error{% endif %}">
+                            <div class="step-node"></div>
+                            <span>2. Revisión</span>
+                        </div>
+
+                        <div class="progress-step {% if sol.estado == 'Aprobado' %}step-complete{% endif %}">
+                            <div class="step-node"></div>
+                            <span>3. Dictamen</span>
+                        </div>
+
+                        <div class="progress-step {% if sol.cita_agendada %}step-complete{% endif %}">
+                            <div class="step-node"></div>
+                            <span>4. Cita</span>
+                        </div>
+                    </div>
+
+                    <!-- ZONA DE ACCIONES Y MENSAJES -->
+                    <div class="action-zone">
+                        {% if sol.estado == 'Aprobado' %}
+                            {% if sol.cita_agendada %}
+                                <div style="color: #2e7d32; font-size: 13px; font-weight: 600;">
+                                    Cita agendada para el {{ sol.cita_agendada.fecha|date:"d M Y" }} a las {{ sol.cita_agendada.hora|time:"H:i" }} hrs.
+                                </div>
+                            {% else %}
+                                <p style="margin: 0 0 10px 0; font-size: 12.5px; color: var(--text2);">Trámite aprobado. Seleccione fecha y hora para acudir a ventanilla.</p>
+                                <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar Cita Presencial</a>
+                            {% endif %}
+
+                        {% elif sol.estado == 'Rechazado' %}
+                            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: #c62828; font-weight: 600;">Se identificaron observaciones en la documentación presentada.</p>
+                            <a href="{% url 'corregir_solicitud' sol.id %}" class="btn-action" style="background: #d32f2f; color: white;">Corregir Documentación</a>
+                            
+                        {% else %}
+                            <p style="margin: 0 0 10px 0; font-size: 12.5px; color: var(--text2);">La documentación se encuentra bajo revisión por el personal correspondiente.</p>
+                            <a href="{% url 'corregir_solicitud' sol.id %}" class="btn-action" style="background: white; border: 1px solid var(--p200); color: var(--p700);">Ver Documentos Enviados</a>
+                        {% endif %}
+                    </div>
+                    
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+
+    {% else %}
+        <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; border: 1px dashed var(--p200);">
+            <h3 style="margin: 0 0 10px 0; color: var(--p700); font-family: 'Sora', sans-serif;">Sin Trámites Registrados</h3>
+            <p style="color: var(--text3); margin-bottom: 20px;">No cuenta con trámites activos en este momento.</p>
+            <a href="{% url 'inicio' %}" class="btn-action" style="background: var(--teal); color: white;">Consultar Catálogo</a>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock content %}

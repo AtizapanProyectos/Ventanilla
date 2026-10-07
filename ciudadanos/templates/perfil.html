@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/perfil.css' %}?v=18.0">
+
+<!-- Estilos para los Popups (Modales) y Fix de Archivos -->
+<style>
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(15, 31, 61, 0.6); backdrop-filter: blur(4px);
+        z-index: 9999; display: flex; align-items: center; justify-content: center;
+        opacity: 0; visibility: hidden; transition: all 0.3s ease;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal-content {
+        background: #fff; border-radius: var(--r-lg); width: 90%; max-width: 500px;
+        padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        max-height: 85vh; overflow-y: auto; transform: translateY(20px); transition: all 0.3s ease;
+    }
+    .modal-overlay.active .modal-content { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { font-family: 'Sora', sans-serif; font-size: 18px; color: #0f1f3d; }
+    .btn-close-modal { background: none; border: none; font-size: 26px; color: #6767a5; cursor: pointer; line-height: 1; }
+    .icon-exito { width: 64px; height: 64px; background: #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #16a34a; }
+    
+    /* FIX DEFINITIVO: Engaña al navegador para que envíe el archivo sin mostrarlo */
+    .hidden-file-input {
+        width: 0.1px;
+        height: 0.1px;
+        opacity: 0;
+        overflow: hidden;
+        position: absolute;
+        z-index: -1;
+    }
+</style>
+
+<div id="spinner-global" class="spinner-overlay">
+    <div class="spinner-ring"></div>
+    <div class="spinner-texto">Guardando expediente...</div>
+</div>
+
+{% if perfil_actualizado %}
+<div id="modal-exito" class="modal-overlay active">
+    <div class="modal-content" style="text-align: center;">
+        <div class="icon-exito">
+            <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        </div>
+        <h2 style="font-family: 'Sora', sans-serif; font-size: 22px; color: #0f1f3d; margin-bottom: 8px;">¡Datos actualizados!</h2>
+        <p style="color: #6767a5; font-size: 14.5px; margin-bottom: 24px; line-height: 1.5;">Tus datos personales y documentos han sido guardados correctamente en el sistema.</p>
+        <button type="button" class="btn-solid" onclick="document.getElementById('modal-exito').classList.remove('active')" style="width: 100%; padding: 14px;">Entendido</button>
+    </div>
+</div>
+{% endif %}
+
+<div class="perfil-wrapper">
+    <section class="perfil-container wrap" style="padding-top: 40px;">
+        
+        <!-- Mensajes de diagnóstico de archivos -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="perfil-alert success" style="margin-bottom: 15px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if error_password %}
+            <div class="perfil-alert error">
+                <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                {{ error_password }}
+            </div>
+        {% endif %}
+
+        <form id="form-expediente" action="{% url 'perfil' %}" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="action_guardar" value="1" {% if not edicion_habilitada %}disabled{% endif %}>
+            
+            <div class="perfil-layout">
+                
+                <!-- COLUMNA IZQUIERDA: Formulario de Datos -->
+                <div class="perfil-card">
+                    <div class="perfil-main-header">
+                        <h2 class="perfil-hero-title">Mi Perfil Ciudadano</h2>
+                        <p class="perfil-hero-subtitle">Gestiona tu información oficial y expediente digital</p>
+                    </div>
+
+                    <div class="perfil-card-header">
+                        <h3>Datos Personales</h3>
+                        <p>
+                            {% if edicion_habilitada %}
+                                <span class="text-teal">Modo edición activado.</span> Actualiza tus datos y/o documentos.
+                            {% else %}
+                                Modo de solo lectura. Tus datos están protegidos.
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="perfil-grid-dinamico bloque-oficial">
+                        <div class="input-group">
+                            <label>CURP</label>
+                            <input type="text" value="{{ user.curp }}" readonly class="readonly-input input-destacado">
+                        </div>
+                        <div class="input-group">
+                            <label>Fecha de Nacimiento</label>
+                            <input type="text" name="fecha_nacimiento" value="{{ user.fecha_nacimiento }}" readonly class="readonly-input input-destacado">
+                        </div>
+                        <small class="leyenda-bloque">* Datos extraídos de tu documento oficial. No editables.</small>
+                    </div>
+
+                    <div class="perfil-grid-dinamico">
+                        <div class="input-group">
+                            <label>Nombre(s)</label>
+                            <input type="text" name="nombre" value="{{ user.nombre }}" required minlength="2" oninput="this.value = this.value.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚ\s]/g, '').toUpperCase()" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                        <div class="input-group">
+                            <label>Apellidos</label>
+                            <input type="text" name="apellidos" value="{{ user.apellidos }}" required minlength="2" oninput="this.value = this.value.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚ\s]/g, '').toUpperCase()" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                        <div class="input-group">
+                            <label>Correo Electrónico</label>
+                            <input type="email" name="email" value="{{ user.email }}" required {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                        <div class="input-group helper-hidden"></div>
+                        <div class="input-group">
+                            <label>Teléfono Celular</label>
+                            <input type="tel" name="telefono_cel" value="{{ user.telefono_cel|default:'' }}" required minlength="10" maxlength="10" pattern="[0-9]{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                        <div class="input-group">
+                            <label>Teléfono de Casa (Opcional)</label>
+                            <input type="tel" name="telefono_casa" value="{{ user.telefono_casa|default:'' }}" minlength="10" maxlength="10" pattern="[0-9]{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                    </div>
+
+                    <h4 class="perfil-seccion-titulo">Domicilio Actual</h4>
+                    <div class="perfil-grid-domicilio">
+                        <div class="input-group">
+                            <label>Código Postal</label>
+                            <div class="cp-wrapper">
+                                <input type="text" id="cp-input" name="cp" value="{{ user.cp|default:'' }}" required minlength="5" maxlength="5" pattern="[0-9]{5}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                            </div>
+                        </div>
+                        <div class="input-group input-relativo">
+                            <label>Colonia</label>
+                            <input type="text" id="colonia-input" name="colonia" value="{{ user.colonia|default:'' }}" required autocomplete="off" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                            <div id="colonia-dropdown" class="custom-dropdown"></div>
+                        </div>
+                    </div>
+
+                    <div class="perfil-grid-calle">
+                        <div class="input-group">
+                            <label>Calle</label>
+                            <input type="text" name="calle" value="{{ user.calle|default:'' }}" required {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                        <div class="input-group">
+                            <label>Número</label>
+                            <input type="text" name="numero" value="{{ user.numero|default:'' }}" required {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                        <div class="input-group">
+                            <label>Mz / Lt (Opcional)</label>
+                            <input type="text" name="mz_lt" value="{{ user.mz_lt|default:'' }}" {% if not edicion_habilitada %}readonly class="readonly-input"{% endif %}>
+                        </div>
+                    </div>
+
+                    {% if not edicion_habilitada %}
+                        <div class="perfil-caja-seguridad">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                            <p>Para editar tu información, verifica tu identidad:</p>
+                            <div class="perfil-desbloqueo-flex">
+                                <input type="password" name="password_unlock" placeholder="Tu contraseña" required>
+                                <button type="submit" name="action_desbloquear" class="btn-solid">Desbloquear</button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="perfil-acciones-flex">
+                            <a href="{% url 'perfil' %}" class="btn-ghost">Cancelar edición</a>
+                            <button type="submit" form="form-expediente" name="action_guardar" value="1" class="btn-solid">
+                                <svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Guardar cambios
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- COLUMNA DERECHA: Expediente -->
+                <div class="perfil-card docs-card">
+                    <div class="perfil-card-header">
+                        <h3>Mi Expediente</h3>
+                        <p>Documentos vinculados a tu cuenta.</p>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        {% if documento and documento.archivo_curp %}
+                            <div class="doc-item-card" style="border-left: 4px solid #16a34a;">
+                                <div class="doc-item-header">
+                                    <div class="doc-icon"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
+                                    <div class="doc-info">
+                                        <span class="doc-title">Documento CURP</span>
+                                        <span class="doc-status" style="color: #16a34a; font-weight: 600;">Validado por OCR (Fijo)</span>
+                                    </div>
+                                </div>
+                                <a href="{{ documento.archivo_curp.url }}" target="_blank" class="btn-doc-view" style="width: 100%;">Ver Documento PDF</a>
+                            </div>
+                        {% endif %}
+
+                        {% for archivo in archivos_requisito|slice:":6" %}
+                            <div class="doc-item-card">
+                                <div class="doc-item-header">
+                                    <div class="doc-icon" style="background: rgba(86, 133, 141, 0.1);"><svg viewBox="0 0 24 24" stroke="#56858d" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+                                    <div class="doc-info">
+                                        <span class="doc-title">{{ archivo.requisito.nombre|default:"Documento del trámite" }}</span>
+                                        <span class="doc-status">Registrado en expediente</span>
+                                    </div>
+                                </div>
+                                <div class="doc-actions-flex">
+                                    <a href="{{ archivo.archivo.url }}" target="_blank" class="btn-doc-view">Ver</a>
+                                    {% if edicion_habilitada %}
+                                        <label class="btn-doc-edit">
+                                            <!-- Envolvemos TODO el contenido visual en un span para proteger al input -->
+                                            <span class="btn-texto-estado">
+                                                <svg viewBox="0 0 24 24" stroke="currentColor" width="16" height="16" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                                Reemplazar
+                                            </span>
+                                            <!-- El input invisible ya no será destruido por el script -->
+                                            <input type="file" name="reemplazar_doc_{{ archivo.id }}" accept=".pdf" class="hidden-file-input">
+                                        </label>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+
+                        {% if archivos_requisito|length > 6 %}
+                            <button type="button" class="btn-doc-edit" onclick="document.getElementById('modal-docs').classList.add('active')" style="width: 100%; border-style: dashed; margin-top: 10px;">
+                                Ver {{ archivos_requisito|length|add:"-6" }} documentos más...
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- POPUP: EL RESTO DE LOS DOCUMENTOS -->
+            <div id="modal-docs" class="modal-overlay">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Documentos Adicionales</h3>
+                        <button type="button" class="btn-close-modal" onclick="document.getElementById('modal-docs').classList.remove('active')">&times;</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        {% for archivo in archivos_requisito|slice:"6:" %}
+                            <div class="doc-item-card">
+                                <div class="doc-item-header">
+                                    <div class="doc-icon" style="background: rgba(86, 133, 141, 0.1);"><svg viewBox="0 0 24 24" stroke="#56858d" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+                                    <div class="doc-info">
+                                        <span class="doc-title">{{ archivo.requisito.nombre|default:"Documento del trámite" }}</span>
+                                        <span class="doc-status">Registrado en expediente</span>
+                                    </div>
+                                </div>
+                                <div class="doc-actions-flex">
+                                    <a href="{{ archivo.archivo.url }}" target="_blank" class="btn-doc-view">Ver</a>
+                                    {% if edicion_habilitada %}
+                                        <label class="btn-doc-edit">
+                                            <!-- Span protector -->
+                                            <span class="btn-texto-estado">
+                                                <svg viewBox="0 0 24 24" stroke="currentColor" width="16" height="16" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                                Reemplazar
+                                            </span>
+                                            <input type="file" name="reemplazar_doc_{{ archivo.id }}" accept=".pdf" class="hidden-file-input">
+                                        </label>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+        </form>
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Alerta visual REPARADA: Solo modifica el span interior, no destruye el archivo.
+    const fileInputs = document.querySelectorAll('input[type="file"][name^="reemplazar_doc_"]');
+    fileInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                const label = this.closest('label');
+                const textoSpan = label.querySelector('.btn-texto-estado');
+                
+                if (textoSpan) {
+                    textoSpan.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" width="16" height="16" fill="none"><path d="M20 6L9 17l-5-5"></path></svg> ¡Listo!`;
+                }
+                
+                label.style.background = '#dcfce7';
+                label.style.color = '#16a34a';
+                label.style.borderColor = '#16a34a';
+                label.style.borderStyle = 'solid';
+            }
+        });
+    });
+
+    const formExpediente = document.getElementById('form-expediente');
+    if(formExpediente){
+        formExpediente.addEventListener('submit', function(e) {
+            if (e.submitter && e.submitter.name === 'action_guardar') {
+                document.getElementById('spinner-global').classList.add('active');
+            }
+        });
+    }
+});
+</script>
+{% endblock content %}

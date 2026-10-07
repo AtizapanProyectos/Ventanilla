@@ -1,0 +1,35 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Django
+staticfiles/
+media/
+*.sqlite3
+*.bak
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Editores / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+
+# Docker (no se usa en Railway)
+docker-compose.yml
+Dockerfile

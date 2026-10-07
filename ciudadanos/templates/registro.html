@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Agregamos el script oficial de Google reCAPTCHA -->
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+<!-- AQUÍ INICIA EL FONDO ANIMADO: Reemplazamos la <section> vieja por este div -->
+<div class="wave-auth-bg">
+  <div class="auth-box" style="max-width: 860px; padding: 50px;">
+    <div class="auth-header">
+      <h2>Crear cuenta ciudadana</h2>
+    </div>
+    
+    <form id="form-registro" class="auth-form" method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      
+      <!-- ZONA DE CARGA OCR (Restringida a PDF oficial) -->
+      <div class="ocr-upload-zone" id="drop-zone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--p600)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Haz clic o arrastra aquí tu archivo de CURP</span>
+        <small>Solo se admiten documentos en formato PDF oficial</small>
+      </div>
+       <input type="file" id="curp-file" name="curp_file" accept=".pdf" style="display: none;" required>
+      
+      <!-- DATOS EXTRAÍDOS -->
+      <div class="input-group" style="margin-bottom: 16px; background: var(--teal-bg); padding: 16px; border-radius: var(--r-sm); border: 1px solid rgba(29, 160, 122, 0.3);">
+        <label style="color: var(--teal); font-weight: 700; font-size: 14px;">CURP (Tu usuario de acceso)</label>
+        <input type="text" id="ext-curp" name="curp" placeholder="Se autocompletará con tu documento" readonly class="readonly-input" style="font-weight: 700; color: var(--text); background: var(--white) !important; letter-spacing: 1px;">
+        <small style="color: var(--teal); font-weight: 600; margin-top: 6px; display: block;">⚠️ Importante: Esta Clave Única será tu usuario oficial para iniciar sesión.</small>
+      </div>
+
+      <div class="extracted-data-grid">
+        <div class="input-group">
+          <label>Nombre(s)</label>
+          <input type="text" id="ext-nombre" name="nombre" placeholder="Autocompletado" readonly class="readonly-input">
+        </div>
+        <div class="input-group">
+          <label>Apellido Paterno</label>
+          <input type="text" id="ext-paterno" name="paterno" placeholder="Autocompletado" readonly class="readonly-input">
+        </div>
+        <div class="input-group">
+          <label>Apellido Materno</label>
+          <input type="text" id="ext-materno" name="materno" placeholder="Autocompletado" readonly class="readonly-input">
+        </div>
+        <div class="input-group">
+          <label>Fecha de Nacimiento</label>
+          <input type="text" id="ext-fecha" name="fecha_nacimiento" placeholder="DD/MM/AAAA" readonly class="readonly-input">
+        </div>
+      </div>
+
+      <!-- BLOQUE DE DOMICILIO COMPLETO -->
+      <div class="address-grid" style="margin-bottom: 12px;">
+        <div class="input-group">
+          <label>Código Postal</label>
+          <div class="cp-wrapper">
+             <input type="text" id="cp" name="cp" placeholder="Ej. 52900" required maxlength="5" autocomplete="off">
+             <span class="cp-indicator"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          </div>
+        </div>
+        <div class="input-group address-span" style="position: relative;">
+          <label>Colonia</label>
+          <input type="text" id="colonia" name="colonia" placeholder="Ingresa un CP válido primero" required autocomplete="off" disabled>
+          <div id="colonia-dropdown" class="custom-dropdown"></div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="input-group" style="margin-bottom: 0;">
+          <label>Calle</label>
+          <input type="text" name="calle" placeholder="Ej. Av. Independencia" required>
+        </div>
+        <div class="input-group" style="margin-bottom: 0;">
+          <label>Número</label>
+          <input type="text" name="numero" placeholder="Ej. 14 o S/N" required>
+        </div>
+        <div class="input-group" style="margin-bottom: 0;">
+          <label>Mz / Lt</label>
+          <input type="text" name="mz" placeholder="Opcional">
+        </div>
+      </div>
+
+      <!-- CONTACTO Y GÉNERO -->
+      <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+        
+        <!-- Dropdown Personalizado de Género -->
+        <div class="input-group" style="flex: 1; margin-bottom: 0; position: relative;">
+          <label>Género</label>
+          <!-- Input oculto que enviará el dato real a Django -->
+          <input type="hidden" id="genero-input" name="genero">
+          
+          <!-- La caja visible que reemplaza al select nativo -->
+          <div class="custom-select-box" id="genero-box">
+            <span id="genero-text" style="color: var(--p400);">Seleccionar...</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--p600);"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+
+          <!-- El menú desplegable con el estilo institucional -->
+          <div id="genero-dropdown" class="custom-dropdown">
+            <div class="dropdown-item" data-value="Hombre">Hombre</div>
+            <div class="dropdown-item" data-value="Mujer">Mujer</div>
+            <div class="dropdown-item" data-value="Otro">Otro</div>
+            <div class="dropdown-item" data-value="Prefiero no decirlo">Prefiero no decirlo</div>
+          </div>
+        </div>
+
+        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+          <label>Correo electrónico</label>
+          <input type="email" name="email" placeholder="ejemplo@correo.com" required autocomplete="email">
+        </div>
+      </div>
+<!-- NUEVO BLOQUE: TELÉFONOS (MÉXICO +52) -->
+      <div style="display: flex; gap: 12px; margin-bottom: 6px;">
+        
+        <!-- Teléfono Celular -->
+        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+          <label>Teléfono Celular <small style="color: var(--p400); font-weight: 400;">(10 dígitos)</small></label>
+          <div style="display: flex; align-items: center; border: 1px solid var(--p200); border-radius: var(--r-sm); background: var(--white); overflow: hidden; height: 46px;">
+            <span style="padding: 0 12px; background: var(--p50); color: var(--p600); font-weight: 600; border-right: 1px solid var(--p200); height: 100%; display: flex; align-items: center; font-size: 14px;">+52</span>
+            <input type="tel" id="telefono-cel" name="telefono_cel" placeholder="5512345678" maxlength="10" minlength="10" style="border: none; outline: none; padding: 0 12px; width: 100%; font-family: inherit; font-size: 14.5px; background: transparent;" autocomplete="tel">
+          </div>
+        </div>
+
+        <!-- Teléfono de Casa -->
+        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+          <label>Teléfono de Casa <small style="color: var(--p400); font-weight: 400;">(10 dígitos)</small></label>
+          <div style="display: flex; align-items: center; border: 1px solid var(--p200); border-radius: var(--r-sm); background: var(--white); overflow: hidden; height: 46px;">
+            <span style="padding: 0 12px; background: var(--p50); color: var(--p600); font-weight: 600; border-right: 1px solid var(--p200); height: 100%; display: flex; align-items: center; font-size: 14px;">+52</span>
+            <input type="tel" id="telefono-casa" name="telefono_casa" placeholder="5512345678" maxlength="10" minlength="10" style="border: none; outline: none; padding: 0 12px; width: 100%; font-family: inherit; font-size: 14.5px; background: transparent;" autocomplete="tel">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Contenedor visual para los errores de teléfono -->
+      <div id="telefono-error" class="error-text" style="display: none; margin-bottom: 16px;"></div>
+      
+      <!-- BLOQUE DE CONTRASEÑA -->
+      <div style="display: flex; gap: 12px; align-items: flex-start;">
+        <div class="input-group" style="flex: 1; margin-bottom: 4px;">
+          <label>Contraseña</label>
+          <input type="password" id="password" name="password" placeholder="Mín. 6 caracteres, 1 número, 1 signo" required>
+        </div>
+        <div class="input-group" style="flex: 1; margin-bottom: 4px;">
+          <label>Confirmar Contraseña</label>
+          <input type="password" id="password-conf" name="password-conf" placeholder="Repite tu contraseña" required>
+        </div>
+      </div>
+      <div id="password-error" class="error-text" style="display: none;"></div>
+     
+
+      <!-- CAPTCHA GOOGLE OFICIAL (Con llave pública de pruebas) -->
+      <div style="display: flex; justify-content: center; margin: 10px 0;">
+        <div class="g-recaptcha" data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"></div>
+      </div>
+      
+      <button type="submit" class="btn-solid" style="width: 100%; margin-top: 8px; font-size: 15px; padding: 14px;">
+        Crear cuenta ciudadana
+      </button>
+    </form>
+    
+    <div class="auth-footer">
+      <span>¿Ya tienes una cuenta?</span>
+      <a href="/">Inicia sesión aquí</a>
+    </div>
+  </div>
+</div>
+<!-- AQUÍ TERMINA EL FONDO ANIMADO -->
+
+<script src="{% static 'js/registro.js' %}"></script> 
+{% endblock content %}

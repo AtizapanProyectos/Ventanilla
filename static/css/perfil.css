@@ -1,0 +1,263 @@
+/* ==========================================================================
+   MÓDULO: PERFIL CIUDADANO (DASHBOARD INSTITUCIONAL PERFECTO)
+   ========================================================================== */
+
+/* Fondo general con ola fluida institucional */
+.perfil-wrapper {
+    background: linear-gradient(120deg, #b8aee8 0%, #d4cef3 25%, #c2e2eb 50%, #cce8dc 75%, #b8aee8 100%);
+    background-size: 400% 400%;
+    animation: moverFondo 16s ease infinite;
+    min-height: calc(100vh - 68px);
+    width: 100%;
+    padding: 40px 0 60px 0;
+    position: relative;
+    overflow-x: hidden;
+}
+
+@keyframes moverFondo {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Contenedor Maestro Dashboard */
+.perfil-container {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 3vw, 2.5rem);
+    position: relative;
+    z-index: 10;
+}
+
+/* Layout de Dashboard: Formulario Amplio (Izquierda) + Expediente Fijo (Derecha) */
+.perfil-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+}
+
+/* Tarjetas Estilo Glassmorphism Limpias */
+.perfil-card {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    border-radius: var(--r-xl);
+    box-shadow: 0 12px 32px rgba(15, 31, 61, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1);
+    padding: 40px;
+    width: 100%;
+}
+
+.docs-card {
+    position: sticky;
+    top: 92px;
+}
+
+/* --- CABECERA INTEGRADA Y CENTRADA --- */
+.perfil-main-header {
+    text-align: center;
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid rgba(15, 31, 61, 0.06);
+}
+.perfil-hero-title {
+    color: #0f1f3d;
+    margin-bottom: 6px;
+    font-size: clamp(24px, 3.5vw, 30px);
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.perfil-hero-subtitle {
+    color: #4d4383;
+    font-size: 14.5px;
+    font-weight: 500;
+}
+
+.perfil-card-header {
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(15, 31, 61, 0.08);
+    padding-bottom: 14px;
+}
+.perfil-card-header h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    color: #0f1f3d;
+    margin-bottom: 2px;
+}
+.perfil-card-header p {
+    font-size: 13px;
+    color: #6767a5;
+}
+.text-teal { color: #56858d; font-weight: 700; }
+
+/* Spinner Global de Carga */
+.spinner-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.spinner-overlay.active { opacity: 1; visibility: visible; }
+.spinner-ring {
+    width: 50px; height: 50px;
+    border: 4px solid rgba(86, 133, 141, 0.15);
+    border-top-color: #56858d;
+    border-radius: 50%;
+    animation: rotarSpinner 1s linear infinite;
+    margin-bottom: 14px;
+}
+.spinner-texto {
+    font-family: 'Sora', sans-serif;
+    font-size: 15px; font-weight: 600;
+    color: #0f1f3d;
+    animation: latidoTexto 1.5s ease-in-out infinite;
+}
+
+@keyframes rotarSpinner { 100% { transform: rotate(360deg); } }
+@keyframes latidoTexto { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Inputs y Controles del Formulario */
+.perfil-card .input-group input {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #d1d5db;
+    color: #0f1f3d;
+    font-size: 13.5px;
+    padding: 10px 14px;
+}
+.perfil-card .input-group input:focus {
+    background: #ffffff;
+    border-color: #56858d;
+    box-shadow: 0 0 0 3px rgba(86, 133, 141, 0.15);
+}
+.readonly-input { background: rgba(15, 31, 61, 0.03) !important; color: #6767a5 !important; border-color: transparent !important; }
+
+/* Botones y Acciones del Formulario */
+.perfil-acciones-flex .btn-solid {
+    background: #56858d;
+    box-shadow: 0 4px 14px rgba(86, 133, 141, 0.25);
+    border: none; border-radius: var(--r-sm);
+    color: white; cursor: pointer; font-weight: 600;
+    transition: all 0.2s;
+}
+.perfil-acciones-flex .btn-solid:hover { background: #456f76; transform: translateY(-1px); }
+.perfil-caja-seguridad .btn-solid { 
+    background: #4d4383; border: none; border-radius: var(--r-sm);
+    color: white; cursor: pointer; font-weight: 600; 
+}
+.perfil-caja-seguridad .btn-solid:hover { background: #3c3466; }
+
+/* Grillas del Formulario Organizadas */
+.perfil-grid-dinamico { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.perfil-grid-domicilio { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; }
+.perfil-grid-calle { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.input-relativo { position: relative; }
+.helper-hidden { visibility: hidden; display: none; }
+.perfil-seccion-titulo { margin: 28px 0 16px; font-family: 'Sora', sans-serif; font-size: 15px; color: #4d4383; font-weight: 700; }
+
+.bloque-oficial { background: rgba(15, 31, 61, 0.02); padding: 20px; border-radius: var(--r-md); border: 1px solid rgba(15, 31, 61, 0.05); margin-bottom: 24px; }
+.bloque-oficial .input-group { margin-bottom: 0; }
+.input-destacado { font-weight: 700 !important; letter-spacing: 0.5px; }
+.leyenda-bloque { grid-column: 1 / -1; color: #6767a5; font-size: 11.5px; margin-top: -2px; font-weight: 500; }
+.leyenda-input { color: #6b7280; font-size: 11px; margin-top: 4px; display: block; }
+
+.perfil-alert { padding: 14px 18px; border-radius: var(--r-md); margin-bottom: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.perfil-alert svg { width: 20px; height: 20px; stroke-width: 2.5; flex-shrink: 0; }
+.perfil-alert.success { background: rgba(86, 133, 141, 0.1); border: 1px solid rgba(86, 133, 141, 0.3); color: #56858d; }
+.perfil-alert.error { background: #fef2f2; border: 1px solid #dc2626; color: #b91c1c; }
+
+.perfil-aviso-legal { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 16px; border-radius: var(--r-sm); margin-bottom: 24px; font-size: 12.5px; line-height: 1.5; display: flex; gap: 10px; align-items: flex-start; }
+.perfil-aviso-legal svg { width: 20px; height: 20px; stroke: #d97706; stroke-width: 2; flex-shrink: 0; }
+
+.perfil-caja-seguridad { margin-top: 28px; padding: 26px 20px; background: rgba(15, 31, 61, 0.02); border: 1px solid rgba(15, 31, 61, 0.06); border-radius: var(--r-md); text-align: center; }
+.perfil-caja-seguridad svg { width: 26px; height: 26px; stroke: #6767a5; stroke-width: 2; margin-bottom: 10px; }
+.perfil-caja-seguridad p { font-size: 14px; color: #0f1f3d; margin-bottom: 16px; font-weight: 600; }
+.perfil-desbloqueo-flex { display: flex; gap: 10px; max-width: 340px; margin: 0 auto; }
+.perfil-desbloqueo-flex input { flex: 1; padding: 10px 14px; border-radius: var(--r-sm); border: 1px solid #d1d5db; font-family: inherit; font-size: 13.5px; outline: none; }
+.perfil-desbloqueo-flex button { padding: 10px 18px; white-space: nowrap; }
+
+.perfil-acciones-flex { display: flex; justify-content: flex-end; gap: 14px; margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(0,0,0,0.06); }
+.perfil-acciones-flex .btn-ghost { padding: 10px 24px; text-decoration: none; width: auto; flex: none; color: #4d4383; font-weight: 600; font-size: 13.5px; }
+.perfil-acciones-flex .btn-solid { padding: 10px 24px; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* Tarjetas de Expediente y Documentos */
+.doc-item-card { background: rgba(255,255,255,0.8); border: 1px solid rgba(15, 31, 61, 0.08); border-radius: var(--r-md); padding: 16px; display: flex; flex-direction: column; gap: 14px; transition: transform 0.2s, background 0.2s; }
+.doc-item-card:hover { transform: translateY(-2px); background: #ffffff; border-color: rgba(15, 31, 61, 0.15); box-shadow: 0 6px 20px rgba(15, 31, 61, 0.04); }
+.doc-item-header { display: flex; align-items: center; gap: 12px; }
+.doc-icon { width: 42px; height: 42px; background: rgba(77, 67, 131, 0.08); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.doc-icon svg { width: 20px; height: 20px; stroke: #4d4383; stroke-width: 2; }
+.doc-info { display: flex; flex-direction: column; }
+.doc-title { font-weight: 700; font-size: 14px; color: #0f1f3d; }
+.doc-status { font-size: 11.5px; color: #6767a5; font-weight: 500; margin-top: 2px;}
+.btn-doc-view { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; background: rgba(121, 176, 204, 0.1); color: #0f1f3d; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 13.5px; transition: background 0.2s; }
+.btn-doc-view:hover { background: rgba(121, 176, 204, 0.2); }
+.btn-doc-view svg { width: 15px; height: 15px; stroke-width: 2.2; }
+.doc-empty-state { text-align: center; padding: 32px 16px; border: 1.5px dashed #d1d5db; border-radius: var(--r-md); }
+.doc-empty-state svg { width: 32px; height: 32px; stroke: #9ca3af; stroke-width: 1.5; margin-bottom: 10px; }
+.doc-empty-state p { font-size: 13px; color: #6b7280; }
+
+/* Responsivo impecable para Tablets y Celulares */
+@media (max-width: 960px) {
+    .perfil-layout { grid-template-columns: 1fr; }
+    .docs-card { position: static; }
+}
+@media (max-width: 500px) {
+    .perfil-card { padding: 20px 16px; }
+    .perfil-grid-dinamico, .perfil-grid-domicilio, .perfil-grid-calle { grid-template-columns: 1fr; gap: 10px; }
+    .perfil-desbloqueo-flex, .perfil-acciones-flex { flex-direction: column; width: 100%; }
+    .perfil-acciones-flex .btn-ghost, .perfil-acciones-flex .btn-solid { width: 100%; text-align: center; justify-content: center; }
+    .bloque-oficial { padding: 16px; }
+}
+/* --- ESTILOS PARA ACCIONES MULTIPLES EN EXPEDIENTE --- */
+.doc-actions-flex { 
+    display: flex; 
+    gap: 8px; 
+    width: 100%; 
+}
+.btn-doc-view { 
+    flex: 1; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    padding: 10px; 
+    background: rgba(121, 176, 204, 0.12); 
+    color: #0f1f3d; 
+    text-decoration: none; 
+    border-radius: 8px; 
+    font-weight: 600; 
+    font-size: 13px; 
+    transition: background 0.2s; 
+}
+.btn-doc-view:hover { 
+    background: rgba(121, 176, 204, 0.25); 
+}
+.btn-doc-edit { 
+    flex: 1; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 6px; 
+    padding: 10px; 
+    background: rgba(86, 133, 141, 0.05); 
+    border: 1.5px dashed #56858d; 
+    color: #56858d; 
+    border-radius: 8px; 
+    font-weight: 600; 
+    font-size: 13px; 
+    cursor: pointer; 
+    transition: all 0.2s; 
+}
+.btn-doc-edit:hover { 
+    background: rgba(86, 133, 141, 0.15); 
+    border-style: solid; 
+}

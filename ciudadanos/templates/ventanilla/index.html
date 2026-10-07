@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+/* Estilos para la expansión de las tarjetas de dependencias */
+.cat-wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.cat {
+  z-index: 2; 
+}
+.cat-content {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  background: white;
+  border: 1px solid var(--card-border);
+  border-top: none;
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  margin-top: -15px; 
+  padding: 0 14px;
+  transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+}
+.cat-wrapper.active .cat {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-bottom-color: transparent;
+  box-shadow: 0 4px 15px rgba(82,70,184,.08);
+}
+.cat-wrapper.active .cat-content {
+  max-height: 400px; 
+  opacity: 1;
+  padding: 25px 14px 14px;
+  margin-top: 0;
+  box-shadow: 0 8px 28px rgba(82,70,184,.13);
+}
+.cat-wrapper.active .cat-arrow {
+  transform: rotate(180deg);
+}
+.tramite-link {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text2);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  transition: background 0.2s, color 0.2s, padding-left 0.2s;
+}
+.tramite-link:hover {
+  background: var(--p50);
+  color: var(--p700);
+  font-weight: 600;
+  padding-left: 14px; 
+}
+/* Ocultar inicialmente el mensaje de no resultados */
+#no-results {
+  display: none;
+  grid-column: 1 / -1; 
+  text-align: center; 
+  padding: 40px; 
+  background: white; 
+  border-radius: 12px; 
+  border: 1px solid var(--card-border);
+}
+</style>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-glass">
+      <div class="burbuja-difusa burbuja-textos">
+        <span class="hero-eyebrow">Gobierno Municipal · Portal Ciudadano</span>
+        <h1>¿Qué trámite<br>necesitas hacer <em>hoy</em>?</h1>
+        <p class="hero-sub">Encuentra, inicia y da seguimiento a tus trámites municipales en un solo lugar.</p>
+      </div>
+
+      <div class="burbuja-difusa burbuja-buscador">
+        <div class="search-wrap">
+          <form method="GET" action="{% url 'inicio' %}" class="search-box" id="search-form">
+            <input id="q" name="q" value="{{ query }}" type="text" placeholder="Buscar trámite (Ej. poda, predial, negocio)…" autocomplete="off"/>
+            <button type="submit" class="btn-search">
+              <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Buscar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap sec">
+  <div class="cats-grid">
+    {% for direccion in direcciones %}
+    <div class="cat-wrapper" onclick="toggleCat(this)">
+      <div class="cat">
+        
+        {% if forloop.counter == 1 %}
+          <div class="cat-icon-wrap" style="background:var(--p100); color:var(--p600);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+          </div>
+        {% elif forloop.counter == 2 %}
+          <div class="cat-icon-wrap" style="background:var(--p100); color:var(--p600);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+        {% elif forloop.counter == 3 %}
+          <div class="cat-icon-wrap" style="background:var(--p100); color:var(--p600);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+          </div>
+        {% elif forloop.counter == 4 %}
+          <div class="cat-icon-wrap" style="background:var(--p100); color:var(--p600);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="18" height="9" rx="1"/><path d="M8 12V7h8v5"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          </div>
+        {% elif forloop.counter == 5 %}
+          <div class="cat-icon-wrap" style="background:var(--p100); color:var(--p600);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8C8 10 5.9 16.17 3.82 19c0 0 1.18-6 3.18-8 0 0-4 2-5 6 0 0 2.17-2.17 5-3 0 0-3 4-3 7h16s0-5-3-9c0 0 2 4 1 9"/><path d="M12 12c0 0-1-4-4-6"/></svg>
+          </div>
+        {% else %}
+          <div class="cat-icon-wrap" style="background:var(--p100); color:var(--p600);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+        {% endif %}
+        
+        <span class="cat-name">{{ direccion.nombre }}</span>
+        <span class="cat-desc">{{ direccion.descripcion|truncatechars:45 }}</span>
+        
+        <div class="cat-arrow" style="transition: transform 0.3s;">
+          <svg viewBox="0 0 16 16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+      </div>
+      
+      <div class="cat-content">
+          {% for tramite in direccion.tramite_set.all %}
+              <a href="{% url 'iniciar_tramite' tramite.id %}" class="tramite-link">
+                  📄 {{ tramite.nombre|truncatechars:35 }}
+              </a>
+          {% empty %}
+              <span style="font-size: 11px; color: var(--text3); padding: 8px;">Próximamente...</span>
+          {% endfor %}
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="wrap sec" style="padding-bottom:0;">
+  <div class="sec-header">
+    <h2 class="sec-title">Catálogo de Trámites</h2>
+  </div>
+  <div class="tramites-grid" id="tramites-container">
+    
+    {% for tramite in tramites %}
+    <div class="tcard">
+      <div class="tcard-accent" style="background:var(--p100);"></div>
+      <div class="tcard-body">
+        <div class="tcard-header">
+            <div class="tcard-icon" style="background:var(--p100); color:var(--p600);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+          <div>
+            <div class="tcard-title">{{ tramite.nombre }}</div>
+            <div class="tcard-dep">
+              <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>{{ tramite.direccion.nombre }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tcard-pills">
+          <span class="pill pill-time">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {{ tramite.tiempo }}
+          </span>
+          <span class="pill pill-cost">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg>
+            {{ tramite.costo }}
+          </span>
+          <span class="pill pill-mode">
+            <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            {{ tramite.modalidad }}
+          </span>
+        </div>
+        
+        <div class="tcard-footer">
+        <a href="{% url 'iniciar_tramite' tramite.id %}" class="btn-solid" style="text-decoration: none;">
+          Iniciar trámite
+          <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Mensaje de no resultados controlado por JavaScript -->
+    <div id="no-results">
+        <p style="color: var(--text3); font-size: 16px;">No se encontraron trámites que coincidan con la búsqueda.</p>
+        <button type="button" onclick="document.getElementById('q').value=''; document.getElementById('q').dispatchEvent(new Event('input'));" class="btn-ghost" style="margin-top: 10px; padding: 10px 20px;">Ver todos los trámites</button>
+    </div>
+
+  </div>
+</section>
+
+<script>
+// Función para abrir y cerrar el acordeón
+function toggleCat(element) {
+    document.querySelectorAll('.cat-wrapper').forEach(el => {
+        if (el !== element) {
+            el.classList.remove('active');
+        }
+    });
+    element.classList.toggle('active');
+}
+
+// Lógica de búsqueda en tiempo real
+document.addEventListener("DOMContentLoaded", function() {
+    const searchInput = document.getElementById("q");
+    const cards = document.querySelectorAll(".tcard");
+    const noResults = document.getElementById("no-results");
+    const searchForm = document.getElementById("search-form");
+
+    // Prevenir que el formulario recargue la página al presionar Enter
+    searchForm.addEventListener("submit", function(e) {
+        e.preventDefault();
+    });
+
+    searchInput.addEventListener("input", function(e) {
+        const filter = e.target.value.toLowerCase().trim();
+        let visibleCount = 0;
+
+        cards.forEach(function(card) {
+            const title = card.querySelector(".tcard-title").textContent.toLowerCase();
+            const dep = card.querySelector(".tcard-dep span").textContent.toLowerCase();
+            
+            if (title.includes(filter) || dep.includes(filter)) {
+                card.style.display = "flex";
+                visibleCount++;
+            } else {
+                card.style.display = "none";
+            }
+        });
+
+        if (noResults) {
+            noResults.style.display = visibleCount === 0 ? "block" : "none";
+        }
+    });
+
+    // Disparar el evento de entrada al cargar la página por si hay un término preexistente
+    if(searchInput.value) {
+        searchInput.dispatchEvent(new Event('input'));
+    }
+});
+</script>
+
+{% endblock content %}
