@@ -1,0 +1,50 @@
+<p class="dif-kicker">Cita médica · {{ cita.folio_cita }}</p>
+<h2>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h2>
+<dl>
+  <dt>CURP</dt><dd>{{ cita.ciudadano.curp }}</dd>
+  <dt>Correo electrónico</dt><dd>{{ cita.ciudadano.email }}</dd>
+  <dt>Teléfono</dt><dd>{{ expediente.telefono }}</dd>
+  <dt>Dependencia</dt><dd>{{ cita.tramite.direccion.nombre }}</dd>
+  <dt>Trámite</dt><dd>{{ cita.tramite.nombre }}</dd>
+  <dt>Fecha y hora</dt><dd>{{ cita.fecha|date:"l j F Y" }} · {{ cita.hora|time:"H:i" }}</dd>
+  <dt>Estado</dt><dd>{{ cita.get_estado_display }}</dd>
+  <dt>Observaciones</dt><dd>{{ cita.observaciones|default:"Sin observaciones" }}</dd>
+</dl>
+<a href="{% url 'panel_expediente_clinico' expediente.pk %}" data-clinical-modal>Ver expediente</a>
+{% if documento %}
+  <section data-finalizado="{{ cita.pk }}">
+    <h3>Historia clínica generada</h3>
+    <p>La consulta está cerrada y el PDF quedó guardado en el expediente.</p>
+    {% if puede_descargar %}
+      <a class="btn-solid" href="{% url 'descargar_documento_clinico' documento.pk %}">Descargar PDF</a>
+    {% endif %}
+  </section>
+{% elif puede_capturar %}
+  <section>
+    <h3>Captura de la consulta</h3>
+    <p>Al finalizar se guardará la atención y se generará el PDF para el expediente y el paciente.</p>
+    <form method="post" action="{% url 'panel_cita_medica' cita.pk %}" data-clinical-form data-confirm="¿Finalizar la consulta y guardar el PDF institucional?">
+      {% csrf_token %}
+      {{ formulario.non_field_errors }}
+      {% if formulario.errors %}<p class="dif-alert" role="alert">Revisa los campos marcados.</p>{% endif %}
+      <div class="dif-fields">
+        {% for campo in campos_principales %}
+          <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+            {{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+          </div>
+        {% endfor %}
+      </div>
+      <details {% if formulario.errors %}open{% endif %}>
+        <summary>Exploración y datos clínicos adicionales</summary>
+        <div class="dif-fields">
+          {% for campo in campos_adicionales %}
+            <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+              {{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+      <div class="dif-actions"><button class="btn-solid" type="submit">Finalizar y generar PDF</button></div>
+    </form>
+  </section>
+{% endif %}

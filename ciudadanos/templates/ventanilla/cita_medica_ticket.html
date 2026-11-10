@@ -13,5 +13,8 @@
         <dt>Estado</dt><dd>{{ cita.get_estado_display }}</dd>
     </dl>
     <button class="btn-solid" type="button" onclick="window.print()">Imprimir ticket</button>
+    {% if documento %}
+        <p><a href="{% url 'descargar_documento_clinico' documento.pk %}">Descargar historia clínica en PDF</a></p>
+    {% endif %}
 </div>
 {% endblock %}

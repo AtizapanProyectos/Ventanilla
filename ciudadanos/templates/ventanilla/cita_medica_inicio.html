@@ -1,21 +1,58 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block content %}
-<div class="wrap sec">
-    <a href="{% url 'inicio' %}">← Volver al catálogo</a>
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<script defer src="{% static 'js/citas.js' %}"></script>
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'inicio' %}">← Volver al catálogo</a>
+  <header class="dif-hero">
+    <p class="dif-kicker">DIF · Atención médica</p>
     <h1>{{ tramite.nombre }}</h1>
-    <p>{{ tramite.descripcion }}</p>
-    <form method="post">
-        {% csrf_token %}
-        {% if recurrente %}
-            <p>Ya tienes un expediente clínico. Continúa para reservar tu cita.</p>
-        {% else %}
-            <h2>Ficha clínica de primera vez</h2>
-            <p>Paciente: {{ user.nombre }} {{ user.apellidos }} · CURP {{ user.curp }}</p>
-            <p>Completa tus datos y antecedentes. El personal clínico registra la exploración durante la consulta.</p>
-            {{ ficha.as_p }}
-        {% endif %}
-        <p><button class="btn-solid" type="submit">Continuar a horarios</button></p>
+    {% if tramite.descripcion %}<p>{{ tramite.descripcion }}</p>{% endif %}
+  </header>
+  <div class="dif-layout">
+    <form method="post" class="dif-card dif-form" {% if not recurrente %}data-wizard{% endif %} data-busy-form>
+      {% csrf_token %}
+      {% if recurrente %}
+        <h2>Tu expediente está listo</h2>
+        <p>Ya tienes un expediente clínico. Continúa para reservar tu cita.</p>
+      {% else %}
+        <h2>Ficha clínica de primera vez</h2>
+        <p>Completa tus datos y antecedentes. El personal clínico registrará la exploración durante tu consulta.</p>
+        <ol class="dif-steps" aria-label="Fases del formulario">
+          {% for titulo, campos in ficha.pasos %}<li data-step><span>{{ forloop.counter }}</span>{{ titulo }}</li>{% endfor %}
+        </ol>
+        {{ ficha.non_field_errors }}
+        {% if ficha.errors %}<p class="dif-alert" role="alert">Revisa los campos indicados antes de continuar.</p>{% endif %}
+        {% for titulo, campos in ficha.pasos %}
+          <fieldset class="dif-phase" data-phase>
+            <legend tabindex="-1">{{ titulo }}</legend>
+            <div class="dif-fields">
+              {% for campo in campos %}
+                <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+                  {{ campo.label_tag }}
+                  {% if campo.field.required %}<small>Obligatorio</small>{% endif %}
+                  {{ campo }}
+                  {{ campo.errors }}
+                </div>
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% endfor %}
+      {% endif %}
+      <div class="dif-actions">
+        <button class="dif-secondary" type="button" data-prev hidden>Anterior</button>
+        <button class="btn-solid" type="button" data-next hidden>Continuar</button>
+        <button class="btn-solid" type="submit" data-submit>Continuar a horarios</button>
+      </div>
     </form>
-</div>
+    <aside class="dif-card dif-summary">
+      <p class="dif-kicker">Paciente</p>
+      <h2>{{ user.nombre }} {{ user.apellidos }}</h2>
+      <p>{{ user.curp }}</p>
+      <hr>
+      <p>Usaremos esta ficha para preparar tu primera consulta. El expediente se conserva para tus próximas citas.</p>
+    </aside>
+  </div>
+</main>
 {% endblock %}

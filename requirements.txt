@@ -13,7 +13,9 @@ psycopg2-binary==2.9.12
 pycparser==3.0
 PyMySQL==1.2.0
 pypdfium2==5.12.1
+pypdf==6.21.4
 python-decouple==3.8
+reportlab==4.4.9
 sqlparse==0.5.5
 tzdata==2026.3
 whitenoise==6.12.0

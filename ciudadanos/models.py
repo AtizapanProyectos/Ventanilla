@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -302,8 +303,24 @@ class ConsultaClinica(models.Model):
         return self.cita.folio_cita
 
 
+def validar_pdf_clinico(archivo):
+    if archivo.size > 5 * 1024 * 1024:
+        raise ValidationError('El PDF supera los 5 MB.')
+    cabecera = archivo.read(5)
+    archivo.seek(0)
+    if not archivo.name.lower().endswith('.pdf') or cabecera != b'%PDF-':
+        raise ValidationError('Selecciona un archivo PDF.')
+
+
 class DocumentoClinico(models.Model):
     expediente = models.ForeignKey(ExpedienteClinico, on_delete=models.CASCADE, related_name='documentos')
+    consulta = models.OneToOneField(
+        ConsultaClinica, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='pdf_institucional', editable=False,
+    )
+    generado_por = models.ForeignKey(
+        Ciudadano, on_delete=models.SET_NULL, null=True, blank=True, editable=False,
+    )
     nombre = models.CharField(max_length=255, editable=False)
     contenido = models.BinaryField()
     fecha_subida = models.DateTimeField(auto_now_add=True)

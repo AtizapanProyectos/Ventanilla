@@ -124,6 +124,11 @@ class ConsultaClinicaInline(admin.StackedInline):
     extra = 0
     readonly_fields = ('elaborada',)
 
+    def has_change_permission(self, request, obj=None):
+        if obj and DocumentoClinico.objects.filter(consulta__cita=obj).exists():
+            return False
+        return super().has_change_permission(request, obj)
+
 
 @admin.register(Cita)
 class CitaAdmin(admin.ModelAdmin):
@@ -159,23 +164,14 @@ class HorarioDireccionAdmin(admin.ModelAdmin):
 
 
 class DocumentoClinicoForm(forms.ModelForm):
-    archivo = forms.FileField(label='PDF', help_text='Máximo 5 MB.')
+    archivo = forms.FileField(label='PDF', help_text='Máximo 5 MB.', validators=[validar_pdf_clinico])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
             self.fields['archivo'].required = False
-
-    def clean_archivo(self):
-        archivo = self.cleaned_data['archivo']
-        if archivo is None:
-            return None
-        if archivo.size > 5 * 1024 * 1024:
-            raise forms.ValidationError('El PDF supera los 5 MB.')
-        if not archivo.name.lower().endswith('.pdf') or archivo.read(5) != b'%PDF-':
-            raise forms.ValidationError('Selecciona un archivo PDF.')
-        archivo.seek(0)
-        return archivo
+        if self.instance.consulta_id:
+            self.fields['archivo'].disabled = True
 
     def save(self, commit=True):
         documento = super().save(commit=False)

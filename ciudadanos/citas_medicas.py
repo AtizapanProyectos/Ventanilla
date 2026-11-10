@@ -13,6 +13,19 @@ from .models import Cita, Ciudadano, ExpedienteClinico, Solicitud, Tramite, Turn
 
 
 class FichaClinicaForm(forms.ModelForm):
+    @property
+    def pasos(self):
+        return [
+            ('Identificación', [self[n] for n in ('edad', 'genero', 'estado_civil', 'ocupacion', 'escolaridad')]),
+            ('Domicilio y contacto', [self[n] for n in (
+                'lugar_origen', 'lugar_residencia', 'domicilio', 'telefono', 'tutor', 'parentesco',
+            )]),
+            ('Antecedentes', [self[n] for n in (
+                'antecedentes_familiares', 'antecedentes_no_patologicos',
+                'antecedentes_patologicos', 'antecedentes_gineco_obstetricos',
+            )]),
+        ]
+
     def clean(self):
         datos = super().clean()
         edad = datos.get('edad')
@@ -93,19 +106,24 @@ def _en_ventana(fecha, hora, ahora):
     )
 
 
-def _turnos_disponibles(tramite, ahora):
+def _calendario(tramite, ahora):
     horarios = list(tramite.turnos_medicos.all())
     ocupados = set(Cita.objects.filter(
         tramite=tramite,
         fecha__gte=ahora.date(),
         fecha__lt=ahora.date() + timedelta(days=DIAS_AGENDA),
     ).exclude(estado__in=('Cancelada', 'Reprogramada')).values_list('fecha', 'hora'))
-    for dias in range(DIAS_AGENDA):
-        fecha = ahora.date() + timedelta(days=dias)
-        for turno in horarios:
-            if (turno.dia_semana == fecha.weekday() and _en_ventana(fecha, turno.hora, ahora)
-                    and (fecha, turno.hora) not in ocupados):
-                yield fecha, turno.hora
+    inicio = ahora.date() - timedelta(days=ahora.weekday())
+    dias = []
+    for desplazamiento in range(35):
+        fecha = inicio + timedelta(days=desplazamiento)
+        turnos = [
+            (turno.hora, (fecha, turno.hora) in ocupados)
+            for turno in horarios
+            if turno.dia_semana == fecha.weekday() and _en_ventana(fecha, turno.hora, ahora)
+        ]
+        dias.append({'fecha': fecha, 'turnos': turnos})
+    return dias
 
 
 def _reservar(solicitud, fecha, hora):
@@ -157,5 +175,5 @@ def agendar(request, solicitud):
 
     return render(request, 'ventanilla/cita_medica_agenda.html', {
         'solicitud': solicitud, 'error': error,
-        'turnos': list(_turnos_disponibles(solicitud.tramite, timezone.localtime())),
+        'dias': _calendario(solicitud.tramite, timezone.localtime()),
     })

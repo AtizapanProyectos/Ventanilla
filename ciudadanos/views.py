@@ -7,7 +7,6 @@ from django.contrib.auth import login, authenticate, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.urls import reverse
 from django.views.decorators.cache import never_cache
 import re
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -21,7 +20,7 @@ from django.db.models import Case, When, Value, IntegerField
 
 Ciudadano = get_user_model()
 from .models import *
-from . import citas_medicas
+from . import citas_medicas, panel_clinico
 
 def inicio(request):
     # Obtenemos lo que el usuario escribió en el buscador (si no escribió nada, queda vacío '')
@@ -376,10 +375,14 @@ def mis_tramites(request):
 def es_funcionario(user):
     return user.is_authenticated and user.is_superuser
 
+
+def puede_abrir_panel(user):
+    return es_funcionario(user) or panel_clinico.personal_clinico(user)
+
 # 2. Tu nueva vista de Login para Funcionarios
 def login_funcionario(request):
     # Si ya está logueado y es superuser, lo mandamos directo al panel
-    if request.user.is_authenticated and request.user.is_superuser:
+    if puede_abrir_panel(request.user):
         return redirect('panel_funcionario')
 
     if request.method == 'POST':
@@ -391,7 +394,7 @@ def login_funcionario(request):
 
         if user is not None:
             # Aquí verificamos la columna is_superuser de tu tabla
-            if user.is_superuser:
+            if puede_abrir_panel(user):
                 login(request, user)
                 return redirect('panel_funcionario')
             else:
@@ -406,7 +409,8 @@ def login_funcionario(request):
     return render(request, 'ventanilla/login_funcionario.html')
 
 
-@user_passes_test(es_funcionario, login_url='login_funcionario')
+@user_passes_test(puede_abrir_panel, login_url='login_funcionario')
+@never_cache
 def panel_funcionario(request):
     # ORDENADO POR RETRASO: Las solicitudes más antiguas (fecha de creación ascendente) aparecen primero
     todas_las_solicitudes = Solicitud.objects.select_related(
@@ -414,7 +418,10 @@ def panel_funcionario(request):
     ).order_by('fecha_creacion')
     
     todas_las_citas = Cita.objects.filter(estado='Programada').order_by('fecha', 'hora')
-    hoy = timezone.now().date()
+    if not es_funcionario(request.user):
+        todas_las_solicitudes = todas_las_solicitudes.filter(tramite__es_cita_medica=True)
+        todas_las_citas = todas_las_citas.filter(tramite__es_cita_medica=True)
+    hoy = timezone.localdate()
 
     citas_hoy = todas_las_citas.filter(fecha=hoy)
     citas_futuras = todas_las_citas.filter(fecha__gt=hoy)
@@ -441,7 +448,7 @@ def revisar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(Solicitud, id=solicitud_id)
     if solicitud.tramite.es_cita_medica:
         expediente = get_object_or_404(ExpedienteClinico, ciudadano=solicitud.ciudadano)
-        return redirect(reverse('admin:ciudadanos_expedienteclinico_change', args=[expediente.pk]))
+        return redirect('panel_expediente_clinico', expediente.pk)
     archivos = solicitud.archivos.all()
 
     if request.method == 'POST':
@@ -539,4 +546,5 @@ def ticket_cita_medica(request, solicitud_id):
         Cita.objects.select_related('tramite__direccion', 'solicitud', 'ciudadano'),
         solicitud_id=solicitud_id, solicitud__ciudadano=request.user,
     )
-    return render(request, 'ventanilla/cita_medica_ticket.html', {'cita': cita})
+    documento = DocumentoClinico.objects.filter(consulta__cita=cita).defer('contenido').first()
+    return render(request, 'ventanilla/cita_medica_ticket.html', {'cita': cita, 'documento': documento})

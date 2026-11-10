@@ -1,4 +1,5 @@
 from datetime import date, datetime, time
+from io import BytesIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -7,6 +8,7 @@ from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from pypdf import PdfReader
 
 from .models import (
     Cita, Ciudadano, ConsultaClinica, Direccion, DocumentoClinico, ExpedienteClinico,
@@ -113,7 +115,9 @@ class CitasMedicasTests(TestCase):
         )
         self.client.post(self.inicio, self.ficha)
         agenda = reverse('agendar_cita', args=[Solicitud.objects.get(ciudadano=self.ciudadano).pk])
-        self.assertNotContains(self.client.get(agenda), self.turno)
+        respuesta = self.client.get(agenda)
+        self.assertContains(respuesta, self.turno)
+        self.assertContains(respuesta, 'Ocupado')
         for turno in (self.turno, '2026-11-09|09:00:00', '2026-11-09|14:00:00', '2026-11-10|12:30:00'):
             self.assertContains(self.client.post(agenda, {'turno': turno}), 'ya no está disponible')
         self.assertFalse(Cita.objects.filter(ciudadano=self.ciudadano).exists())
@@ -159,3 +163,51 @@ class CitasMedicasTests(TestCase):
         self.assertEqual(self.client.get(descarga).status_code, 200)
         self.client.force_login(self.ciudadano)
         self.assertEqual(self.client.get(descarga).status_code, 302)
+
+    def test_panel_finaliza_una_vez_y_publica_pdf_privado(self):
+        self.client.post(self.inicio, self.ficha)
+        expediente = ExpedienteClinico.objects.get()
+        solicitud = Solicitud.objects.get()
+        self.client.post(reverse('agendar_cita', args=[solicitud.pk]), {'turno': self.turno})
+        cita = Cita.objects.get()
+        detalle = reverse('panel_cita_medica', args=[cita.pk])
+        historia = reverse('panel_expediente_clinico', args=[expediente.pk])
+        ticket = reverse('ticket_cita_medica', args=[solicitud.pk])
+        self.assertEqual(self.client.get(historia).status_code, 403)
+        self.staff.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='ciudadanos', codename__in=(
+                'view_cita', 'change_cita', 'view_expedienteclinico', 'add_consultaclinica',
+                'view_documentoclinico',
+            ),
+        ))
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(reverse('panel_funcionario')), 'data-clinical-modal')
+        self.assertContains(self.client.get(detalle), 'Motivo de atención', count=1)
+        self.assertContains(self.client.post(detalle, {}), 'Revisa los campos marcados')
+        captura = {
+            'padecimiento_actual': 'Motivo de prueba', 'diagnostico': 'Análisis de prueba',
+            'acciones_linea_vida': 'Acción de prueba', 'pronostico': 'Resolución de prueba',
+            'medico': 'Personal de prueba', 'cedula_profesional': '1234567',
+        }
+        for _ in range(2):
+            self.assertContains(self.client.post(detalle, captura), 'Historia clínica generada')
+        cita.refresh_from_db()
+        self.assertEqual(cita.estado, 'Atendida')
+        documento = DocumentoClinico.objects.get(consulta__cita=cita)
+        self.assertEqual(documento.generado_por, self.staff)
+        self.assertContains(self.client.get(historia), documento.nombre)
+        pdf = PdfReader(BytesIO(documento.contenido))
+        self.assertEqual(len(pdf.pages), 3)
+        self.assertIn('Motivo de prueba', pdf.pages[0].extract_text())
+        self.assertIn(f'EXP-{expediente.pk}', pdf.pages[0].extract_text())
+        self.assertIn('Resolución de prueba', pdf.pages[1].extract_text())
+        self.assertIn(self.ciudadano.curp, pdf.pages[2].extract_text())
+        self.assertIn(cita.folio_cita, pdf.pages[2].extract_text())
+
+        descarga = reverse('descargar_documento_clinico', args=[documento.pk])
+        self.assertEqual(self.client.get(descarga).status_code, 200)
+        self.client.force_login(self.otro)
+        self.assertEqual(self.client.get(descarga).status_code, 404)
+        self.client.force_login(self.ciudadano)
+        self.assertContains(self.client.get(ticket), descarga)
+        self.assertEqual(self.client.get(descarga).status_code, 200)

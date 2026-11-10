@@ -1,27 +1,62 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block content %}
-<div class="wrap sec">
-    <a href="{% url 'mis_tramites' %}">← Volver a Mis trámites</a>
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<script defer src="{% static 'js/citas.js' %}"></script>
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'mis_tramites' %}">← Volver a Mis trámites</a>
+  <header class="dif-hero">
+    <p class="dif-kicker">DIF · Reserva tu turno</p>
     <h1>Agenda de cita médica</h1>
-    <p>{{ solicitud.tramite.direccion.nombre }} · Solicitud {{ solicitud.folio }}</p>
-    {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-    {% if turnos %}
-        <form method="post">
-            {% csrf_token %}
-            <p>
-                <label for="turno">Fecha y hora disponibles</label>
-                <select name="turno" id="turno" required>
-                    <option value="">Selecciona un horario</option>
-                    {% for fecha, hora in turnos %}
-                        <option value="{{ fecha|date:'Y-m-d' }}|{{ hora|time:'H:i:s' }}">{{ fecha|date:'l j \d\e F' }} · {{ hora|time:'H:i' }}</option>
-                    {% endfor %}
-                </select>
-            </p>
-            <button type="submit" class="btn-solid">Confirmar cita médica</button>
-        </form>
-    {% else %}
-        <p>No hay turnos disponibles en las próximas cuatro semanas.</p>
-    {% endif %}
-</div>
+    <p>Elige un día y revisa los turnos antes de confirmar.</p>
+  </header>
+  {% if error %}<p class="dif-alert" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" class="dif-layout" data-agenda data-busy-form>
+    {% csrf_token %}
+    <div class="dif-card">
+      <h2>Fecha y hora</h2>
+      <div class="dif-calendar" data-calendar hidden aria-label="Fechas de atención">
+        <div class="dif-weekdays" aria-hidden="true">
+          <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+        </div>
+        <div class="dif-days">
+          {% for dia in dias %}
+            <button type="button" data-day="{{ dia.fecha|date:'Y-m-d' }}" aria-pressed="false"
+              aria-label="{{ dia.fecha|date:'l j F Y' }}" {% if not dia.turnos %}disabled{% endif %}>
+              {{ dia.fecha|date:'j' }}<small>{{ dia.fecha|date:'M' }}</small>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+      <p class="dif-muted">Disponible · seleccionable <span aria-hidden="true"> / </span> Ocupado · sin cupo</p>
+      {% for dia in dias %}
+        {% if dia.turnos %}
+          <fieldset class="dif-phase dif-slots" data-slots="{{ dia.fecha|date:'Y-m-d' }}">
+            <legend>{{ dia.fecha|date:'l j F' }}</legend>
+            <div class="dif-slot-grid">
+              {% for hora, ocupado in dia.turnos %}
+                <label class="dif-slot{% if ocupado %} dif-occupied{% endif %}">
+                  <input type="radio" name="turno" value="{{ dia.fecha|date:'Y-m-d' }}|{{ hora|time:'H:i:s' }}"
+                    data-summary="{{ dia.fecha|date:'l j F Y' }} · {{ hora|time:'H:i' }}"
+                    {% if ocupado %}disabled{% endif %}>
+                  <span>{{ hora|time:'H:i' }}</span><small>{% if ocupado %}Ocupado{% else %}Disponible{% endif %}</small>
+                </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% endif %}
+      {% endfor %}
+      <p data-empty hidden>Aún no hay horarios publicados para las próximas cuatro semanas.</p>
+    </div>
+    <aside class="dif-card dif-summary">
+      <p class="dif-kicker">Antes de confirmar</p>
+      <h2>Tu cita</h2>
+      <p>{{ solicitud.tramite.direccion.nombre }}</p>
+      <p class="dif-muted">Solicitud {{ solicitud.folio }}</p>
+      <hr>
+      <p class="dif-selection" data-selection aria-live="polite">Selecciona un turno para ver el resumen.</p>
+      <button type="submit" class="btn-solid" data-submit>Confirmar cita médica</button>
+    </aside>
+  </form>
+</main>
 {% endblock %}

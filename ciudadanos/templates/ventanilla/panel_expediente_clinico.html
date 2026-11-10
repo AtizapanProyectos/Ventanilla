@@ -1,0 +1,64 @@
+<p class="dif-kicker">Expediente clínico · {{ expediente.pk }}</p>
+<h2>{{ expediente.ciudadano.nombre }} {{ expediente.ciudadano.apellidos }}</h2>
+<details open>
+  <summary>Datos generales</summary>
+  <dl>
+    <dt>CURP</dt><dd>{{ expediente.ciudadano.curp }}</dd>
+    <dt>Correo</dt><dd>{{ expediente.ciudadano.email }}</dd>
+    <dt>Teléfono</dt><dd>{{ expediente.telefono }}</dd>
+    <dt>Edad al abrir la ficha</dt><dd>{{ expediente.edad }}</dd>
+    <dt>Género</dt><dd>{{ expediente.genero }}</dd>
+    <dt>Estado civil</dt><dd>{{ expediente.estado_civil }}</dd>
+    <dt>Ocupación</dt><dd>{{ expediente.ocupacion }}</dd>
+    <dt>Escolaridad</dt><dd>{{ expediente.escolaridad }}</dd>
+    <dt>Origen</dt><dd>{{ expediente.lugar_origen }}</dd>
+    <dt>Residencia</dt><dd>{{ expediente.lugar_residencia }}</dd>
+    <dt>Domicilio</dt><dd>{{ expediente.domicilio }}</dd>
+    <dt>Padre o tutor</dt><dd>{{ expediente.tutor|default:"No registrado" }}{% if expediente.parentesco %} · {{ expediente.parentesco }}{% endif %}</dd>
+  </dl>
+</details>
+<details>
+  <summary>Respuestas de la ficha clínica</summary>
+  <dl>
+    <dt>Antecedentes heredofamiliares</dt><dd>{{ expediente.antecedentes_familiares|default:"Sin respuesta" }}</dd>
+    <dt>Antecedentes no patológicos</dt><dd>{{ expediente.antecedentes_no_patologicos|default:"Sin respuesta" }}</dd>
+    <dt>Antecedentes patológicos</dt><dd>{{ expediente.antecedentes_patologicos|default:"Sin respuesta" }}</dd>
+    <dt>Antecedentes gineco-obstétricos</dt><dd>{{ expediente.antecedentes_gineco_obstetricos|default:"Sin respuesta" }}</dd>
+  </dl>
+</details>
+<details open>
+  <summary>Historial de citas</summary>
+  <ul>
+    {% for cita in citas %}
+      <li>{{ cita.fecha|date:"d/m/Y" }} · {{ cita.hora|time:"H:i" }} · {{ cita.get_estado_display }}
+        <a href="{% url 'panel_cita_medica' cita.pk %}" data-clinical-modal>{{ cita.folio_cita }}</a>
+      </li>
+    {% empty %}<li>Aún no hay citas.</li>{% endfor %}
+  </ul>
+</details>
+<details open>
+  <summary>Documentos y evidencias</summary>
+  <ul>
+    {% for doc in documentos %}
+      <li>
+        {% if puede_descargar %}<a href="{% url 'descargar_documento_clinico' doc.pk %}">{{ doc.nombre }}</a>
+        {% else %}{{ doc.nombre }}{% endif %}
+        · {% if doc.consulta_id %}Historia clínica{% else %}Evidencia{% endif %}
+        · {{ doc.fecha_subida|date:"d/m/Y H:i" }}
+      </li>
+    {% empty %}<li>Aún no hay documentos.</li>{% endfor %}
+  </ul>
+  {% if puede_adjuntar %}
+    <form method="post" enctype="multipart/form-data" action="{% url 'panel_expediente_clinico' expediente.pk %}" data-clinical-form>
+      {% csrf_token %}
+      {{ evidencia.as_p }}
+      <button class="dif-secondary" type="submit">Adjuntar evidencia</button>
+    </form>
+  {% endif %}
+</details>
+<details>
+  <summary>Bitácora de seguimiento</summary>
+  <ol>
+    {% for fecha, evento in bitacora %}<li>{{ fecha|date:"d/m/Y H:i" }} · {{ evento }}</li>{% endfor %}
+  </ol>
+</details>

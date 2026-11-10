@@ -2,6 +2,8 @@
 {% load static %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<script defer src="{% static 'js/panel-clinico.js' %}"></script>
 <style>
     .panel-wrap { max-width: 1180px; margin: 0 auto; padding: 36px clamp(1rem,4vw,3rem) 70px; }
 
@@ -142,7 +144,7 @@
                     <span class="dot" style="background: var(--orange);"></span>Jornada de Hoy
                 </h3>
                 {% for cita in citas_hoy %}
-                    <div class="cita-card cita-hoy">
+                    <div class="cita-card cita-hoy" data-agenda-cita="{{ cita.pk }}">
                         <div class="cita-date-block">
                             <span class="d">{{ cita.hora|time:"H:i" }}</span>
                             <span class="m">Hoy</span>
@@ -164,7 +166,7 @@
                     <span class="dot" style="background: var(--sky);"></span>Próximas
                 </h3>
                 {% for cita in citas_futuras %}
-                    <div class="cita-card cita-prox">
+                    <div class="cita-card cita-prox" data-agenda-cita="{{ cita.pk }}">
                         <div class="cita-date-block">
                             <span class="d">{{ cita.fecha|date:"d" }}</span>
                             <span class="m">{{ cita.fecha|date:"M" }}</span>
@@ -186,7 +188,7 @@
                     <span class="dot" style="background: var(--text3);"></span>Historial Pasado
                 </h3>
                 {% for cita in citas_pasadas %}
-                    <div class="cita-card cita-hist">
+                    <div class="cita-card cita-hist" data-agenda-cita="{{ cita.pk }}">
                         <div class="cita-date-block">
                             <span class="d">{{ cita.fecha|date:"d" }}</span>
                             <span class="m">{{ cita.fecha|date:"M" }}</span>
@@ -233,7 +235,7 @@
                             </span>
 
                             {% if sol.estado == 'Aprobado' and sol.cita_agendada %}
-                                <span class="cita-badge">{{ sol.cita_agendada.get_estado_display }} · {{ sol.cita_agendada.fecha|date:"d M Y" }}</span>
+                                <span class="cita-badge"><span data-estado-cita="{{ sol.cita_agendada.pk }}">{{ sol.cita_agendada.get_estado_display }}</span> · {{ sol.cita_agendada.fecha|date:"d M Y" }}</span>
                             {% elif sol.estado == 'Aprobado' %}
                                 <span class="sin-cita">(Pendiente de agendar cita)</span>
                             {% endif %}
@@ -241,10 +243,10 @@
                         <td>
                             {% if sol.tramite.es_cita_medica %}
                                 {% if sol.cita_agendada %}
-                                    <a href="{% url 'admin:ciudadanos_cita_change' sol.cita_agendada.pk %}" class="btn-revisar">Ver cita</a>
+                                    <a href="{% url 'panel_cita_medica' sol.cita_agendada.pk %}" class="btn-revisar" data-clinical-modal>Ver cita</a>
                                 {% endif %}
                                 {% if sol.ciudadano.expediente_clinico %}
-                                    <a href="{% url 'revisar_solicitud' sol.id %}" class="btn-revisar">Ver expediente</a>
+                                    <a href="{% url 'panel_expediente_clinico' sol.ciudadano.expediente_clinico.pk %}" class="btn-revisar" data-clinical-modal>Ver expediente</a>
                                 {% endif %}
                             {% else %}
                                 <a href="{% url 'revisar_solicitud' sol.id %}" class="btn-revisar">Validar Docs</a>
@@ -262,4 +264,11 @@
     </div>
 
 </div>
+<dialog class="dif-dialog" id="clinical-dialog" aria-labelledby="clinical-dialog-title">
+    <div class="dif-dialog-head">
+        <strong id="clinical-dialog-title">Atención médica DIF</strong>
+        <button type="button" class="dif-secondary" data-close-dialog>Cerrar</button>
+    </div>
+    <div class="dif-dialog-body" data-dialog-body></div>
+</dialog>
 {% endblock content %}

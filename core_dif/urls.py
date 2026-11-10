@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from ciudadanos import views 
+from ciudadanos import panel_clinico, views
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -32,6 +32,9 @@ urlpatterns = [
     path('funcionario/login/', views.login_funcionario, name='login_funcionario'),
     path('funcionario/panel/', views.panel_funcionario, name='panel_funcionario'),
     path('funcionario/revisar/<int:solicitud_id>/', views.revisar_solicitud, name='revisar_solicitud'),
+    path('funcionario/cita/<int:pk>/', panel_clinico.cita_detalle, name='panel_cita_medica'),
+    path('funcionario/expediente/<int:pk>/', panel_clinico.expediente_detalle, name='panel_expediente_clinico'),
+    path('documento-clinico/<int:pk>/', panel_clinico.documento_descargar, name='descargar_documento_clinico'),
 
     path('mis-tramites/detalle/<int:solicitud_id>/', views.corregir_solicitud, name='corregir_solicitud'),
     path('cita/<int:solicitud_id>/agendar/', views.agendar_cita, name='agendar_cita'),
