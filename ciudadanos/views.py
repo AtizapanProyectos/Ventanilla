@@ -1,9 +1,7 @@
-from django.db import transaction 
-from django.contrib.sites.shortcuts import get_current_site
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
+from django.db import IntegrityError, transaction
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import EmailMessage
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout, get_user_model
 from django.contrib.auth.decorators import login_required
@@ -54,26 +52,35 @@ def inicio(request):
 
 def registro(request):
     if request.method == 'POST':
-        curp = request.POST.get('curp')
-        nombre = request.POST.get('nombre')
-        paterno = request.POST.get('paterno')
-        materno = request.POST.get('materno')
-        email = request.POST.get('email')
+        curp = request.POST.get('curp', '').strip().upper()
+        nombre = request.POST.get('nombre', '').strip()
+        paterno = request.POST.get('paterno', '').strip()
+        materno = request.POST.get('materno', '').strip()
+        email = request.POST.get('email', '').strip()
         password = request.POST.get('password')
         
         fecha_nacimiento = request.POST.get('fecha_nacimiento')
         cp = request.POST.get('cp')
-        colonia = request.POST.get('colonia')
+        colonia = request.POST.get('colonia', '').strip()
         calle = request.POST.get('calle')
         numero = request.POST.get('numero')
-        mz_lt = request.POST.get('mz_lt')
+        mz_lt = request.POST.get('mz')
         genero = request.POST.get('genero')
         telefono_cel = request.POST.get('telefono_cel')
         telefono_casa = request.POST.get('telefono_casa')
         
         apellidos_completos = f"{paterno} {materno}".strip()
         
-        if Ciudadano.objects.filter(curp=curp).exists():
+        if not curp or len(curp) > 18 or not password or password != request.POST.get('password-conf'):
+            return render(request, 'registro.html', {'error': 'Revisa la CURP y confirma tu contraseña.'})
+
+        if not nombre or not email:
+            return render(request, 'registro.html', {'error': 'Completa tu nombre y correo electrónico.'})
+
+        if not colonia or len(colonia) > 150:
+            return render(request, 'registro.html', {'error': 'Escribe una colonia de hasta 150 caracteres.'})
+
+        if Ciudadano.objects.filter(curp__iexact=curp).exists():
             return render(request, 'registro.html', {'error': 'Esta CURP ya está registrada.'})
             
         if Ciudadano.objects.filter(email=email).exists():
@@ -83,20 +90,11 @@ def registro(request):
             with transaction.atomic():
                 nuevo_ciudadano = Ciudadano.objects.create_user(
                     curp=curp, email=email, password=password, 
-                    nombre=nombre, apellidos=apellidos_completos
+                    nombre=nombre, apellidos=apellidos_completos, is_active=True,
+                    fecha_nacimiento=fecha_nacimiento, cp=cp, colonia=colonia,
+                    calle=calle, numero=numero, mz_lt=mz_lt, genero=genero,
+                    telefono_cel=telefono_cel, telefono_casa=telefono_casa,
                 )
-                
-                nuevo_ciudadano.fecha_nacimiento = fecha_nacimiento
-                nuevo_ciudadano.cp = cp
-                nuevo_ciudadano.colonia = colonia
-                nuevo_ciudadano.calle = calle
-                nuevo_ciudadano.numero = numero
-                nuevo_ciudadano.mz_lt = mz_lt
-                nuevo_ciudadano.genero = genero
-                nuevo_ciudadano.telefono_cel = telefono_cel
-                nuevo_ciudadano.telefono_casa = telefono_casa
-                nuevo_ciudadano.is_active = False 
-                nuevo_ciudadano.save()
                 
                 archivo_pdf = request.FILES.get('curp_file')
                 if archivo_pdf:
@@ -106,19 +104,15 @@ def registro(request):
                         verificado=False
                     )
                 
-                current_site = get_current_site(request)
-                uid = urlsafe_base64_encode(force_bytes(nuevo_ciudadano.pk))
-                token = default_token_generator.make_token(nuevo_ciudadano)
-                activation_link = f"http://{current_site.domain}/activar/{uid}/{token}/"
-                
-                mensaje = f"Hola {nombre},\n\nGracias por registrarte en el Portal de Trámites Municipales.\n\nPara completar tu registro y activar tu cuenta, por favor haz clic en el siguiente enlace:\n\n{activation_link}"
-                email_msg = EmailMessage('Activa tu cuenta ciudadana', mensaje, to=[email])
-                email_msg.send()
+        except IntegrityError:
+            if Ciudadano.objects.filter(curp__iexact=curp).exists():
+                return render(request, 'registro.html', {'error': 'Esta CURP ya está registrada.'})
+            if Ciudadano.objects.filter(email=email).exists():
+                return render(request, 'registro.html', {'error': 'Este correo electrónico ya está en uso.'})
+            raise
 
-            return render(request, 'registro_enviado.html', {'email': email})
-            
-        except Exception as e:
-            return render(request, 'registro.html', {'error': f"Error interno: {str(e)}"})
+        login(request, nuevo_ciudadano)
+        return redirect('inicio')
 
     return render(request, 'registro.html')
 

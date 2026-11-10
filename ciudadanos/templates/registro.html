@@ -52,16 +52,12 @@
       <!-- BLOQUE DE DOMICILIO COMPLETO -->
       <div class="address-grid" style="margin-bottom: 12px;">
         <div class="input-group">
-          <label>Código Postal</label>
-          <div class="cp-wrapper">
-             <input type="text" id="cp" name="cp" placeholder="Ej. 52900" required maxlength="5" autocomplete="off">
-             <span class="cp-indicator"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-          </div>
+          <label for="cp">Código Postal</label>
+          <input type="text" id="cp" name="cp" placeholder="Ej. 52900" required maxlength="5" inputmode="numeric" autocomplete="postal-code">
         </div>
         <div class="input-group address-span" style="position: relative;">
-          <label>Colonia</label>
-          <input type="text" id="colonia" name="colonia" placeholder="Ingresa un CP válido primero" required autocomplete="off" disabled>
-          <div id="colonia-dropdown" class="custom-dropdown"></div>
+          <label for="colonia">Colonia</label>
+          <input type="text" id="colonia" name="colonia" placeholder="Escribe tu colonia" required maxlength="150">
         </div>
       </div>
 

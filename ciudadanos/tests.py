@@ -3,6 +3,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import Permission
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -11,6 +12,39 @@ from .models import (
     Cita, Ciudadano, ConsultaClinica, Direccion, DocumentoClinico, ExpedienteClinico,
     Solicitud, Tramite, TurnoMedico,
 )
+
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class RegistroTests(TestCase):
+    def test_registro_activa_y_abre_sesion_sin_correo(self):
+        respuesta = self.client.post(reverse('registro'), {
+            'curp': 'PACIENTE3', 'email': 'paciente3@example.com', 'nombre': 'Paciente',
+            'paterno': 'Prueba', 'materno': '', 'password': 'Prueba-123', 'password-conf': 'Prueba-123',
+            'cp': '01234', 'colonia': 'Colonia sin catálogo', 'mz': 'Mz 2 Lt 4',
+        })
+        self.assertRedirects(respuesta, reverse('inicio'))
+        usuario = Ciudadano.objects.get(pk='PACIENTE3')
+        self.assertTrue(usuario.is_active)
+        self.assertFalse(usuario.is_staff)
+        self.assertEqual(usuario.colonia, 'Colonia sin catálogo')
+        self.assertEqual(usuario.mz_lt, 'Mz 2 Lt 4')
+        self.assertEqual(self.client.session['_auth_user_id'], usuario.pk)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_admin_exige_que_la_cuenta_staff_este_activa(self):
+        usuario = Ciudadano.objects.create_user(
+            'STAFF2', 'staff2@example.com', 'Prueba-123', is_staff=True,
+        )
+        admin_login = reverse('admin:login')
+        credenciales = {'username': usuario.pk, 'password': 'Prueba-123', 'next': reverse('admin:index')}
+        self.assertEqual(self.client.post(admin_login, credenciales).status_code, 200)
+        self.assertNotIn('_auth_user_id', self.client.session)
+        usuario.is_active = True
+        usuario.save(update_fields=['is_active'])
+        self.assertRedirects(self.client.post(admin_login, credenciales), reverse('admin:index'))
 
 
 @override_settings(STORAGES={
