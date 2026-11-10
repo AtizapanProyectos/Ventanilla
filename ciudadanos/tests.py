@@ -48,6 +48,34 @@ class RegistroTests(TestCase):
         usuario.save(update_fields=['is_active'])
         self.assertRedirects(self.client.post(admin_login, credenciales), reverse('admin:index'))
 
+    def test_contrasena_cambiada_en_admin_funciona_con_curp_pegada(self):
+        staff = Ciudadano.objects.create_user(
+            'XEXX010101HNEXXXA4', 'clinica@example.com', 'Anterior-807!',
+            is_staff=True, is_active=True,
+        )
+        staff.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label='ciudadanos', codename__in=('view_cita', 'view_expedienteclinico'),
+        ))
+        administrador = Ciudadano.objects.create_superuser('ADMINQA', 'admin@example.com')
+        self.client.force_login(administrador)
+        nueva = 'Nueva-clave-915!'
+        cambio = reverse('admin:auth_user_password_change', args=[staff.pk])
+        respuesta = self.client.post(cambio, {
+            'usable_password': 'true', 'password1': nueva, 'password2': nueva,
+        })
+        self.assertRedirects(respuesta, reverse('admin:ciudadanos_ciudadano_change', args=[staff.pk]))
+        staff.refresh_from_db()
+        self.assertTrue(staff.check_password(nueva))
+        self.client.logout()
+        curp_pegada = f'  {staff.pk.lower()} '
+        self.assertRedirects(self.client.post(reverse('admin:login'), {
+            'username': curp_pegada, 'password': nueva, 'next': reverse('admin:index'),
+        }), reverse('admin:index'))
+        self.client.logout()
+        self.assertRedirects(self.client.post(reverse('login_funcionario'), {
+            'curp': curp_pegada, 'password': nueva,
+        }), reverse('panel_funcionario'))
+
 
 @override_settings(STORAGES={
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
@@ -188,6 +216,12 @@ class CitasMedicasTests(TestCase):
             'padecimiento_actual': 'Motivo de prueba', 'diagnostico': 'Análisis de prueba',
             'acciones_linea_vida': 'Acción de prueba', 'pronostico': 'Resolución de prueba',
             'medico': 'Personal de prueba', 'cedula_profesional': '1234567',
+            'peso_kg': '70.20', 'talla_m': '1.75', 'tension_arterial': '120/80',
+            'frecuencia_cardiaca': '72', 'frecuencia_respiratoria': '16',
+            'temperatura_c': '36.5', 'saturacion_oxigeno': '98', 'glucosa_mg_dl': '92',
+            'revision_sistemas_cardiovascular': 'Registro cardiovascular de prueba',
+            'revision_sistemas_piel': 'Registro de piel de prueba',
+            'revision_regiones_cabeza': 'Exploración de cabeza de prueba',
         }
         for _ in range(2):
             self.assertContains(self.client.post(detalle, captura), 'Historia clínica generada')
@@ -200,7 +234,11 @@ class CitasMedicasTests(TestCase):
         self.assertEqual(len(pdf.pages), 3)
         self.assertIn('Motivo de prueba', pdf.pages[0].extract_text())
         self.assertIn(f'EXP-{expediente.pk}', pdf.pages[0].extract_text())
-        self.assertIn('Resolución de prueba', pdf.pages[1].extract_text())
+        self.assertIn('Registro cardiovascular de prueba', pdf.pages[0].extract_text())
+        segunda_pagina = pdf.pages[1].extract_text()
+        for valor in ('Resolución de prueba', '70.20', '1.75', '22.92', '120/80', '72', '16', '36.5', '98', '92',
+                      'Registro de piel de prueba', 'Exploración de cabeza de prueba'):
+            self.assertIn(valor, segunda_pagina)
         self.assertIn(self.ciudadano.curp, pdf.pages[2].extract_text())
         self.assertIn(cita.folio_cita, pdf.pages[2].extract_text())
 

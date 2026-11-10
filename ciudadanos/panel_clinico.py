@@ -21,18 +21,32 @@ def personal_clinico(user):
 
 
 class ConsultaForm(forms.ModelForm):
+    VITALES = (
+        'peso_kg', 'talla_m', 'tension_arterial', 'frecuencia_cardiaca', 'frecuencia_respiratoria',
+        'temperatura_c', 'saturacion_oxigeno', 'glucosa_mg_dl', 'signos_vitales',
+    )
+    GRUPOS = (
+        ('revision_sistemas', ConsultaClinica.SISTEMAS),
+        ('revision_regiones', ConsultaClinica.REGIONES),
+    )
+
     class Meta:
         model = ConsultaClinica
         fields = (
             'padecimiento_actual', 'diagnostico', 'acciones_linea_vida', 'pronostico',
             'indicaciones_especiales', 'tratamiento', 'medico', 'cedula_profesional',
             'interrogatorio', 'signos_vitales', 'habitus_exterior', 'exploracion_regiones',
+            'peso_kg', 'talla_m', 'tension_arterial', 'frecuencia_cardiaca', 'frecuencia_respiratoria',
+            'temperatura_c', 'saturacion_oxigeno', 'glucosa_mg_dl',
             'resultados', 'guia_clinica',
         )
         labels = {
             'padecimiento_actual': 'Motivo de atención', 'diagnostico': 'Análisis del caso',
             'acciones_linea_vida': 'Acciones realizadas', 'pronostico': 'Resolución',
             'indicaciones_especiales': 'Observaciones', 'tratamiento': 'Recomendaciones',
+            'interrogatorio': 'Notas generales por aparatos y sistemas',
+            'exploracion_regiones': 'Notas generales de exploración por regiones',
+            'signos_vitales': 'Notas sobre signos vitales',
         }
         widgets = {
             nombre: forms.Textarea(attrs={'rows': 3})
@@ -52,6 +66,43 @@ class ConsultaForm(forms.ModelForm):
                 campo.max_length = 4000
                 campo.validators.append(MaxLengthValidator(4000))
                 campo.widget.attrs['maxlength'] = 4000
+        for grupo, campos in self.GRUPOS:
+            valores = getattr(self.instance, grupo)
+            for nombre, etiqueta in campos:
+                self.fields[f'{grupo}_{nombre}'] = forms.CharField(
+                    label=etiqueta, required=False, max_length=500,
+                    widget=forms.Textarea(attrs={'rows': 2}), initial=valores.get(nombre, ''),
+                )
+
+    @property
+    def secciones_adicionales(self):
+        return (
+            ('Signos vitales', [self[nombre] for nombre in self.VITALES]),
+            ('Interrogatorio por aparatos y sistemas', [
+                *[self[f'revision_sistemas_{nombre}'] for nombre, _ in ConsultaClinica.SISTEMAS],
+                self['interrogatorio'],
+            ]),
+            ('Exploración por regiones', [
+                *[self[f'revision_regiones_{nombre}'] for nombre, _ in ConsultaClinica.REGIONES],
+                self['exploracion_regiones'],
+            ]),
+            ('Exploración general y resultados', [
+                self['habitus_exterior'], self['resultados'], self['guia_clinica'],
+            ]),
+        )
+
+    def save(self, commit=True):
+        consulta = super().save(commit=False)
+        for grupo, campos in self.GRUPOS:
+            valores = {
+                nombre: self.cleaned_data[f'{grupo}_{nombre}']
+                for nombre, _ in campos if self.cleaned_data[f'{grupo}_{nombre}']
+            }
+            setattr(consulta, grupo, valores)
+        if commit:
+            consulta.save()
+            self.save_m2m()
+        return consulta
 
 
 class EvidenciaForm(forms.Form):
@@ -102,7 +153,7 @@ def cita_detalle(request, pk):
     campos = list(formulario) if puede_capturar else []
     return render(request, 'ventanilla/panel_cita_medica.html', {
         'cita': cita, 'expediente': expediente, 'formulario': formulario,
-        'campos_principales': campos[:8], 'campos_adicionales': campos[8:],
+        'campos_principales': campos[:8],
         'puede_capturar': puede_capturar, 'documento': documento,
         'puede_descargar': request.user.has_perm('ciudadanos.view_documentoclinico'),
     })

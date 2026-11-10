@@ -64,6 +64,14 @@ def generar_historia(expediente, consulta):
 
     genero = expediente.genero.casefold()
     estado = expediente.estado_civil.casefold()
+    sistemas = [
+        (etiqueta, consulta.revision_sistemas.get(nombre), 169, y, 590, 1)
+        for (nombre, etiqueta), y in zip(consulta.SISTEMAS, (707, 744, 781, 819, 857, 894, 932, 85, 122, 160))
+    ]
+    regiones = [
+        (etiqueta, consulta.revision_regiones.get(nombre), 137, y, 622, 1)
+        for (nombre, etiqueta), y in zip(consulta.REGIONES, (376, 408, 441, 473, 506, 538))
+    ]
     superponer(0, [
         ('Fecha', fecha.strftime('%d/%m/%Y'), 168, 191, 100, 1),
         ('Hora', fecha.strftime('%H:%M'), 431, 191, 98, 1),
@@ -90,9 +98,21 @@ def generar_historia(expediente, consulta):
         ('Antecedentes patológicos', expediente.antecedentes_patologicos, 35, 486, 725, 2),
         ('Antecedentes gineco-obstétricos', expediente.antecedentes_gineco_obstetricos, 35, 558, 725, 2),
         ('Motivo de atención', consulta.padecimiento_actual, 35, 634, 725, 2),
+        *sistemas[:7],
     ])
     superponer(1, [
+        *sistemas[7:],
+        ('Peso', consulta.peso_kg, 216, 201, 71, 1),
+        ('Talla', consulta.talla_m, 429, 201, 53, 1),
+        ('Índice de masa corporal', consulta.imc, 678, 201, 59, 1),
+        ('Tensión arterial', consulta.tension_arterial, 136, 221, 87, 1),
+        ('Frecuencia cardíaca', consulta.frecuencia_cardiaca, 526, 221, 77, 1),
+        ('Frecuencia respiratoria', consulta.frecuencia_respiratoria, 169, 240, 75, 1),
+        ('Temperatura', consulta.temperatura_c, 493, 240, 69, 1),
+        ('Saturación de oxígeno', consulta.saturacion_oxigeno, 169, 259, 75, 1),
+        ('Glucosa', consulta.glucosa_mg_dl, 493, 259, 69, 1),
         ('Exploración general', consulta.habitus_exterior, 35, 320, 725, 2),
+        *regiones,
         ('Resultados', consulta.resultados, 35, 582, 725, 1),
         ('Análisis del caso', consulta.diagnostico, 98, 631, 663, 3),
         ('Recomendaciones', consulta.tratamiento, 35, 711, 725, 3),

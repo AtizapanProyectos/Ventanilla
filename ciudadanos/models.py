@@ -1,9 +1,26 @@
+from decimal import Decimal, ROUND_HALF_UP
+
+from asgiref.sync import sync_to_async
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
 class CiudadanoManager(BaseUserManager):
+    def get_by_natural_key(self, username):
+        curp = username.strip()
+        try:
+            return super().get_by_natural_key(curp)
+        except self.model.DoesNotExist:
+            try:
+                return self.get(curp__iexact=curp)
+            except self.model.MultipleObjectsReturned:
+                raise self.model.DoesNotExist from None
+
+    async def aget_by_natural_key(self, username):
+        return await sync_to_async(self.get_by_natural_key)(username)
+
     def create_user(self, curp, email, password=None, **extra_fields):
         if not curp:
             raise ValueError('La CURP es obligatoria')
@@ -278,11 +295,36 @@ class ExpedienteClinico(models.Model):
 
 
 class ConsultaClinica(models.Model):
+    SISTEMAS = (
+        ('cardiovascular', 'Cardiovascular'), ('respiratorio', 'Respiratorio'),
+        ('gastrointestinal', 'Gastrointestinal'), ('genitourinario', 'Genitourinario'),
+        ('hematico_linfatico', 'Hemático y linfático'), ('endocrino', 'Endocrino'),
+        ('nervioso', 'Nervioso'), ('musculoesqueletico', 'Musculoesquelético'),
+        ('piel', 'Piel, mucosas y anexos'), ('psicosomatico', 'Psicosomático'),
+    )
+    REGIONES = (
+        ('cabeza', 'Cabeza'), ('cuello', 'Cuello'), ('torax', 'Tórax'),
+        ('abdomen', 'Abdomen'), ('extremidades', 'Extremidades'), ('genitales', 'Genitales'),
+    )
+
     cita = models.OneToOneField(Cita, on_delete=models.PROTECT, related_name='consulta_clinica')
     elaborada = models.DateTimeField(auto_now_add=True)
     padecimiento_actual = models.TextField(blank=True)
     interrogatorio = models.TextField('interrogatorio por aparatos y sistemas', blank=True)
     signos_vitales = models.TextField(blank=True)
+    peso_kg = models.DecimalField('Peso (kg)', max_digits=5, decimal_places=2, null=True, blank=True,
+                                  validators=[MinValueValidator(Decimal('0.01'))])
+    talla_m = models.DecimalField('Talla (m)', max_digits=4, decimal_places=2, null=True, blank=True,
+                                  validators=[MinValueValidator(Decimal('0.01'))])
+    tension_arterial = models.CharField('Tensión arterial (mmHg)', max_length=15, blank=True)
+    frecuencia_cardiaca = models.PositiveSmallIntegerField('Frecuencia cardíaca (por minuto)', null=True, blank=True)
+    frecuencia_respiratoria = models.PositiveSmallIntegerField('Frecuencia respiratoria (por minuto)', null=True, blank=True)
+    temperatura_c = models.DecimalField('Temperatura (°C)', max_digits=4, decimal_places=1, null=True, blank=True)
+    saturacion_oxigeno = models.PositiveSmallIntegerField('Saturación de oxígeno (%)', null=True, blank=True,
+                                                           validators=[MaxValueValidator(100)])
+    glucosa_mg_dl = models.PositiveSmallIntegerField('Glucosa (mg/dL)', null=True, blank=True)
+    revision_sistemas = models.JSONField(default=dict, blank=True)
+    revision_regiones = models.JSONField(default=dict, blank=True)
     habitus_exterior = models.TextField(blank=True)
     exploracion_regiones = models.TextField('exploración por regiones', blank=True)
     resultados = models.TextField('resultados de laboratorio y gabinete', blank=True)
@@ -301,6 +343,12 @@ class ConsultaClinica(models.Model):
 
     def __str__(self):
         return self.cita.folio_cita
+
+    @property
+    def imc(self):
+        if self.peso_kg and self.talla_m:
+            return (self.peso_kg / self.talla_m ** 2).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return None
 
 
 def validar_pdf_clinico(archivo):

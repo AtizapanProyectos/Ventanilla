@@ -34,16 +34,19 @@
           </div>
         {% endfor %}
       </div>
-      <details {% if formulario.errors %}open{% endif %}>
-        <summary>Exploración y datos clínicos adicionales</summary>
-        <div class="dif-fields">
-          {% for campo in campos_adicionales %}
-            <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
-              {{ campo.label_tag }}{{ campo }}{{ campo.errors }}
-            </div>
-          {% endfor %}
-        </div>
-      </details>
+      {% for titulo, campos in formulario.secciones_adicionales %}
+        <details {% if forloop.first or formulario.errors %}open{% endif %}>
+          <summary>{{ titulo }}</summary>
+          {% if forloop.first %}<p>El IMC se calcula al guardar el peso y la talla.</p>{% endif %}
+          <div class="dif-fields">
+            {% for campo in campos %}
+              <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+                {{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      {% endfor %}
       <div class="dif-actions"><button class="btn-solid" type="submit">Finalizar y generar PDF</button></div>
     </form>
   </section>
