@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="wrap sec">
+    <a href="{% url 'mis_tramites' %}">← Volver a Mis trámites</a>
+    <h1>Ticket de cita médica</h1>
+    <dl>
+        <dt>Folio de la cita</dt><dd>{{ cita.folio_cita }}</dd>
+        <dt>Folio de solicitud</dt><dd>{{ cita.solicitud.folio }}</dd>
+        <dt>Paciente</dt><dd>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</dd>
+        <dt>Dependencia</dt><dd>{{ cita.tramite.direccion.nombre }}</dd>
+        <dt>Fecha y hora</dt><dd>{{ cita.fecha|date:'l j \d\e F \d\e Y' }} · {{ cita.hora|time:'H:i' }}</dd>
+        <dt>Estado</dt><dd>{{ cita.get_estado_display }}</dd>
+    </dl>
+    <button class="btn-solid" type="button" onclick="window.print()">Imprimir ticket</button>
+</div>
+{% endblock %}

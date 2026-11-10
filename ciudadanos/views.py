@@ -9,6 +9,8 @@ from django.contrib.auth import login, authenticate, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.urls import reverse
+from django.views.decorators.cache import never_cache
 import re
 from django.contrib.auth.decorators import login_required, user_passes_test
 import pdfplumber
@@ -21,6 +23,7 @@ from django.db.models import Case, When, Value, IntegerField
 
 Ciudadano = get_user_model()
 from .models import *
+from . import citas_medicas
 
 def inicio(request):
     # Obtenemos lo que el usuario escribió en el buscador (si no escribió nada, queda vacío '')
@@ -288,6 +291,8 @@ def perfil_ciudadano(request):
 @login_required(login_url='iniciar_sesion')
 def iniciar_tramite(request, tramite_id):
     tramite = get_object_or_404(Tramite, id=tramite_id)
+    if tramite.es_cita_medica:
+        return citas_medicas.iniciar(request, tramite)
     # Convertimos a lista para poder inyectarle atributos temporales
     requisitos = list(tramite.requisitos.all()) 
 
@@ -341,7 +346,7 @@ def iniciar_tramite(request, tramite_id):
 def mis_tramites(request):
     # Definimos prioridad: Rechazado (1), Pendiente/En proceso (2), Aprobado (3)
     mis_solicitudes = Solicitud.objects.filter(ciudadano=request.user).select_related(
-        'tramite__direccion'
+        'tramite__direccion', 'cita',
     ).annotate(
         prioridad_estado=Case(
             When(estado='Rechazado', then=Value(1)),
@@ -357,7 +362,10 @@ def mis_tramites(request):
     proxima_cita = citas_usuario.first()
 
     for sol in mis_solicitudes:
-        cita = citas_usuario.filter(tramite=sol.tramite).first()
+        if sol.tramite.es_cita_medica:
+            cita = getattr(sol, 'cita', None)
+        else:
+            cita = citas_usuario.filter(tramite=sol.tramite).first()
         sol.cita_agendada = cita 
 
     contexto = {
@@ -407,7 +415,9 @@ def login_funcionario(request):
 @user_passes_test(es_funcionario, login_url='login_funcionario')
 def panel_funcionario(request):
     # ORDENADO POR RETRASO: Las solicitudes más antiguas (fecha de creación ascendente) aparecen primero
-    todas_las_solicitudes = Solicitud.objects.all().order_by('fecha_creacion')
+    todas_las_solicitudes = Solicitud.objects.select_related(
+        'tramite', 'cita', 'ciudadano__expediente_clinico',
+    ).order_by('fecha_creacion')
     
     todas_las_citas = Cita.objects.filter(estado='Programada').order_by('fecha', 'hora')
     hoy = timezone.now().date()
@@ -417,6 +427,9 @@ def panel_funcionario(request):
     citas_pasadas = todas_las_citas.filter(fecha__lt=hoy)
 
     for sol in todas_las_solicitudes:
+        if sol.tramite.es_cita_medica:
+            sol.cita_agendada = getattr(sol, 'cita', None)
+            continue
         cita = Cita.objects.filter(ciudadano=sol.ciudadano, tramite=sol.tramite, estado='Programada').first()
         sol.cita_agendada = cita
 
@@ -432,6 +445,9 @@ def panel_funcionario(request):
 @user_passes_test(es_funcionario, login_url='login_funcionario')
 def revisar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(Solicitud, id=solicitud_id)
+    if solicitud.tramite.es_cita_medica:
+        expediente = get_object_or_404(ExpedienteClinico, ciudadano=solicitud.ciudadano)
+        return redirect(reverse('admin:ciudadanos_expedienteclinico_change', args=[expediente.pk]))
     archivos = solicitud.archivos.all()
 
     if request.method == 'POST':
@@ -493,6 +509,9 @@ def agendar_cita(request, solicitud_id):
         messages.error(request, "Tu trámite aún no ha sido aprobado para agendar cita.")
         return redirect('mis_tramites')
 
+    if solicitud.tramite.es_cita_medica:
+        return citas_medicas.agendar(request, solicitud)
+
     # Aquí traemos los horarios que la dependencia configuró
     horarios_disponibles = solicitud.tramite.direccion.horarios.all()
 
@@ -517,3 +536,13 @@ def agendar_cita(request, solicitud_id):
         'horarios': horarios_disponibles
     }
     return render(request, 'ventanilla/agendar_cita.html', contexto)
+
+
+@login_required(login_url='iniciar_sesion')
+@never_cache
+def ticket_cita_medica(request, solicitud_id):
+    cita = get_object_or_404(
+        Cita.objects.select_related('tramite__direccion', 'solicitud', 'ciudadano'),
+        solicitud_id=solicitud_id, solicitud__ciudadano=request.user,
+    )
+    return render(request, 'ventanilla/cita_medica_ticket.html', {'cita': cita})

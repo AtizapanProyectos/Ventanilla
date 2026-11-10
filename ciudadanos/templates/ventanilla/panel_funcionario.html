@@ -233,13 +233,22 @@
                             </span>
 
                             {% if sol.estado == 'Aprobado' and sol.cita_agendada %}
-                                <span class="cita-badge">Cita: {{ sol.cita_agendada.fecha|date:"d M Y" }}</span>
+                                <span class="cita-badge">{{ sol.cita_agendada.get_estado_display }} · {{ sol.cita_agendada.fecha|date:"d M Y" }}</span>
                             {% elif sol.estado == 'Aprobado' %}
                                 <span class="sin-cita">(Pendiente de agendar cita)</span>
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{% url 'revisar_solicitud' sol.id %}" class="btn-revisar">Validar Docs</a>
+                            {% if sol.tramite.es_cita_medica %}
+                                {% if sol.cita_agendada %}
+                                    <a href="{% url 'admin:ciudadanos_cita_change' sol.cita_agendada.pk %}" class="btn-revisar">Ver cita</a>
+                                {% endif %}
+                                {% if sol.ciudadano.expediente_clinico %}
+                                    <a href="{% url 'revisar_solicitud' sol.id %}" class="btn-revisar">Ver expediente</a>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'revisar_solicitud' sol.id %}" class="btn-revisar">Validar Docs</a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

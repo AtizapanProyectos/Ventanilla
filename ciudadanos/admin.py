@@ -1,5 +1,13 @@
+from io import BytesIO
+
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.core.exceptions import PermissionDenied
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
+from django.urls import path, reverse
+from django.utils.html import format_html
 from .models import *
 
 
@@ -58,12 +66,17 @@ class RequisitoInline(admin.TabularInline):
     extra = 1
 
 
+class TurnoMedicoInline(admin.TabularInline):
+    model = TurnoMedico
+    extra = 0
+
+
 @admin.register(Tramite)
 class TramiteAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'direccion', 'tiempo', 'costo', 'modalidad')
-    list_filter = ('direccion', 'modalidad')
+    list_display = ('nombre', 'direccion', 'tiempo', 'costo', 'modalidad', 'es_cita_medica')
+    list_filter = ('direccion', 'modalidad', 'es_cita_medica')
     search_fields = ('nombre',)
-    inlines = [RequisitoInline]
+    inlines = [RequisitoInline, TurnoMedicoInline]
 
 
 @admin.register(Requisito)
@@ -94,16 +107,130 @@ class ArchivoRequisitoAdmin(admin.ModelAdmin):
     search_fields = ('solicitud__folio',)
 
 
+class CitaAdminForm(forms.ModelForm):
+    def clean(self):
+        datos = super().clean()
+        tramite = datos.get('tramite')
+        if tramite and tramite.es_cita_medica:
+            self.add_error('tramite', 'La cita médica se crea desde la agenda del ciudadano.')
+        if self.instance.solicitud_id and self.instance.estado in ('Cancelada', 'Reprogramada'):
+            if datos.get('estado') == 'Programada':
+                self.add_error('estado', 'La cita debe reservarse de nuevo desde la agenda.')
+        return datos
+
+
+class ConsultaClinicaInline(admin.StackedInline):
+    model = ConsultaClinica
+    extra = 0
+    readonly_fields = ('elaborada',)
+
+
 @admin.register(Cita)
 class CitaAdmin(admin.ModelAdmin):
+    form = CitaAdminForm
     list_display = ('folio_cita', 'ciudadano', 'funcionario', 'tramite', 'fecha', 'hora', 'estado')
     list_filter = ('estado', 'fecha', 'tramite')
     search_fields = ('folio_cita', 'ciudadano__curp', 'ciudadano__nombre')
     readonly_fields = ('folio_cita', 'fecha_creacion')
     date_hierarchy = 'fecha'
 
+    def get_readonly_fields(self, request, obj=None):
+        campos = (*self.readonly_fields, 'solicitud')
+        if obj and obj.solicitud_id:
+            return (*campos, 'ciudadano', 'tramite', 'fecha', 'hora', 'expediente')
+        return campos
+
+    def get_inlines(self, request, obj=None):
+        return [ConsultaClinicaInline] if obj and obj.solicitud_id else []
+
+    @admin.display(description='Expediente clínico')
+    def expediente(self, cita):
+        expediente = getattr(cita.ciudadano, 'expediente_clinico', None)
+        if expediente:
+            url = reverse('admin:ciudadanos_expedienteclinico_change', args=[expediente.pk])
+            return format_html('<a href="{}">{}</a>', url, expediente)
+        return 'Sin expediente'
+
 
 @admin.register(HorarioDireccion)
 class HorarioDireccionAdmin(admin.ModelAdmin):
     list_display = ('direccion', 'dia_semana', 'hora_inicio', 'hora_fin', 'duracion_cita_minutos')
     list_filter = ('direccion', 'dia_semana')
+
+
+class DocumentoClinicoForm(forms.ModelForm):
+    archivo = forms.FileField(label='PDF', help_text='Máximo 5 MB.')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['archivo'].required = False
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data['archivo']
+        if archivo is None:
+            return None
+        if archivo.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('El PDF supera los 5 MB.')
+        if not archivo.name.lower().endswith('.pdf') or archivo.read(5) != b'%PDF-':
+            raise forms.ValidationError('Selecciona un archivo PDF.')
+        archivo.seek(0)
+        return archivo
+
+    def save(self, commit=True):
+        documento = super().save(commit=False)
+        archivo = self.cleaned_data.get('archivo')
+        if archivo:
+            documento.nombre = archivo.name
+            documento.contenido = archivo.read()
+        if commit:
+            documento.save()
+        return documento
+
+
+class DocumentoClinicoInline(admin.TabularInline):
+    model = DocumentoClinico
+    form = DocumentoClinicoForm
+    fields = ('archivo', 'descarga', 'fecha_subida')
+    readonly_fields = ('descarga', 'fecha_subida')
+    extra = 0
+
+    @admin.display(description='Documento guardado')
+    def descarga(self, documento):
+        if documento.pk:
+            url = reverse('admin:ciudadanos_documentoclinico_descargar', args=[documento.pk])
+            return format_html('<a href="{}">{}</a>', url, documento.nombre)
+        return '—'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).defer('contenido')
+
+
+@admin.register(ExpedienteClinico)
+class ExpedienteClinicoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'ciudadano', 'creado')
+    search_fields = ('ciudadano__curp', 'ciudadano__nombre', 'ciudadano__apellidos')
+    autocomplete_fields = ('ciudadano',)
+    readonly_fields = ('creado',)
+    inlines = [DocumentoClinicoInline]
+
+    def get_readonly_fields(self, request, obj=None):
+        return (*self.readonly_fields, 'ciudadano') if obj else self.readonly_fields
+
+    def get_urls(self):
+        return [
+            path('documento/<int:pk>/', self.admin_site.admin_view(self.descargar_documento),
+                 name='ciudadanos_documentoclinico_descargar'),
+            *super().get_urls(),
+        ]
+
+    def descargar_documento(self, request, pk):
+        if not self.has_view_or_change_permission(request) or not request.user.has_perm(
+            'ciudadanos.view_documentoclinico'
+        ):
+            raise PermissionDenied
+        documento = get_object_or_404(DocumentoClinico, pk=pk)
+        return FileResponse(
+            BytesIO(documento.contenido), as_attachment=True, filename=documento.nombre,
+            content_type='application/pdf',
+        )

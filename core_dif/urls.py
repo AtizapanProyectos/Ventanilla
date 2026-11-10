@@ -35,6 +35,7 @@ urlpatterns = [
 
     path('mis-tramites/detalle/<int:solicitud_id>/', views.corregir_solicitud, name='corregir_solicitud'),
     path('cita/<int:solicitud_id>/agendar/', views.agendar_cita, name='agendar_cita'),
+    path('cita/<int:solicitud_id>/ticket/', views.ticket_cita_medica, name='ticket_cita_medica'),
 ]
 
 if settings.DEBUG:

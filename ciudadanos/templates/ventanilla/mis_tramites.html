@@ -178,8 +178,16 @@
                         {% if sol.estado == 'Aprobado' %}
                             {% if sol.cita_agendada %}
                                 <div style="color: #2e7d32; font-size: 13px; font-weight: 600;">
-                                    Cita agendada para el {{ sol.cita_agendada.fecha|date:"d M Y" }} a las {{ sol.cita_agendada.hora|time:"H:i" }} hrs.
+                                    Cita {{ sol.cita_agendada.get_estado_display|lower }} · {{ sol.cita_agendada.fecha|date:"d M Y" }} a las {{ sol.cita_agendada.hora|time:"H:i" }} hrs.
                                 </div>
+                                {% if sol.tramite.es_cita_medica %}
+                                    <a class="btn-action" href="{% url 'ticket_cita_medica' sol.id %}">Ver ticket</a>
+                                    {% if sol.cita_agendada.estado == 'Cancelada' or sol.cita_agendada.estado == 'Reprogramada' %}
+                                        <a class="btn-action" href="{% url 'iniciar_tramite' sol.tramite_id %}">Solicitar otra cita</a>
+                                    {% endif %}
+                                {% endif %}
+                            {% elif sol.tramite.es_cita_medica %}
+                                <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar cita médica</a>
                             {% else %}
                                 <p style="margin: 0 0 10px 0; font-size: 12.5px; color: var(--text2);">Trámite aprobado. Seleccione fecha y hora para acudir a ventanilla.</p>
                                 <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar Cita Presencial</a>

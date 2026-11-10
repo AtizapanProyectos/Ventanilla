@@ -86,6 +86,10 @@ class Tramite(models.Model):
     tiempo = models.CharField(max_length=50)
     costo = models.CharField(max_length=50)
     modalidad = models.CharField(max_length=50)
+    es_cita_medica = models.BooleanField(
+        'Cita médica', default=False,
+        help_text='Usa la ficha clínica y los turnos médicos en lugar de los requisitos generales.',
+    )
 
     def __str__(self):
         return self.nombre
@@ -172,6 +176,9 @@ class Cita(models.Model):
     tramite = models.ForeignKey(
         Tramite, on_delete=models.CASCADE, related_name='citas'
     )
+    solicitud = models.OneToOneField(
+        Solicitud, on_delete=models.CASCADE, null=True, blank=True, related_name='cita'
+    )
 
     # --- FECHA Y HORA ---
     fecha = models.DateField()
@@ -221,3 +228,89 @@ class HorarioDireccion(models.Model):
 
     def __str__(self):
         return f"{self.direccion.nombre} - {self.get_dia_semana_display()} ({self.hora_inicio} a {self.hora_fin})"
+
+
+class TurnoMedico(models.Model):
+    tramite = models.ForeignKey(Tramite, on_delete=models.CASCADE, related_name='turnos_medicos')
+    dia_semana = models.PositiveSmallIntegerField('día', choices=[(0, 'Lunes'), (1, 'Martes')])
+    hora = models.TimeField()
+
+    class Meta:
+        ordering = ('dia_semana', 'hora')
+        verbose_name_plural = 'turnos médicos'
+        constraints = [
+            models.UniqueConstraint(fields=('tramite', 'dia_semana', 'hora'), name='turno_medico_unico'),
+            models.CheckConstraint(condition=models.Q(dia_semana__in=(0, 1)), name='turno_medico_lunes_martes'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_dia_semana_display()} {self.hora:%H:%M}'
+
+
+class ExpedienteClinico(models.Model):
+    ciudadano = models.OneToOneField(
+        Ciudadano, on_delete=models.PROTECT, related_name='expediente_clinico'
+    )
+    creado = models.DateTimeField(auto_now_add=True)
+    edad = models.PositiveSmallIntegerField()
+    genero = models.CharField('género', max_length=50)
+    estado_civil = models.CharField(max_length=50)
+    ocupacion = models.CharField('ocupación', max_length=150)
+    lugar_origen = models.CharField(max_length=150)
+    lugar_residencia = models.CharField(max_length=150)
+    escolaridad = models.CharField(max_length=100)
+    domicilio = models.CharField(max_length=250)
+    telefono = models.CharField('teléfono', max_length=25)
+    tutor = models.CharField('nombre del padre o tutor', max_length=200, blank=True)
+    parentesco = models.CharField(max_length=100, blank=True)
+    antecedentes_familiares = models.TextField('antecedentes heredofamiliares', blank=True)
+    antecedentes_no_patologicos = models.TextField('antecedentes personales no patológicos', blank=True)
+    antecedentes_patologicos = models.TextField('antecedentes personales patológicos', blank=True)
+    antecedentes_gineco_obstetricos = models.TextField('antecedentes gineco-obstétricos', blank=True)
+
+    class Meta:
+        verbose_name = 'expediente clínico'
+        verbose_name_plural = 'expedientes clínicos'
+
+    def __str__(self):
+        return f'Expediente {self.pk} · {self.ciudadano}'
+
+
+class ConsultaClinica(models.Model):
+    cita = models.OneToOneField(Cita, on_delete=models.PROTECT, related_name='consulta_clinica')
+    elaborada = models.DateTimeField(auto_now_add=True)
+    padecimiento_actual = models.TextField(blank=True)
+    interrogatorio = models.TextField('interrogatorio por aparatos y sistemas', blank=True)
+    signos_vitales = models.TextField(blank=True)
+    habitus_exterior = models.TextField(blank=True)
+    exploracion_regiones = models.TextField('exploración por regiones', blank=True)
+    resultados = models.TextField('resultados de laboratorio y gabinete', blank=True)
+    diagnostico = models.TextField('impresión diagnóstica', blank=True)
+    tratamiento = models.TextField('tratamiento e indicaciones', blank=True)
+    indicaciones_especiales = models.TextField(blank=True)
+    pronostico = models.TextField('pronóstico', blank=True)
+    guia_clinica = models.TextField('guía de práctica clínica de referencia', blank=True)
+    acciones_linea_vida = models.TextField('acciones de línea de vida', blank=True)
+    medico = models.CharField('nombre del médico', max_length=200)
+    cedula_profesional = models.CharField('cédula profesional', max_length=30)
+
+    class Meta:
+        verbose_name = 'consulta clínica'
+        verbose_name_plural = 'consultas clínicas'
+
+    def __str__(self):
+        return self.cita.folio_cita
+
+
+class DocumentoClinico(models.Model):
+    expediente = models.ForeignKey(ExpedienteClinico, on_delete=models.CASCADE, related_name='documentos')
+    nombre = models.CharField(max_length=255, editable=False)
+    contenido = models.BinaryField()
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'documento clínico'
+        verbose_name_plural = 'documentos clínicos'
+
+    def __str__(self):
+        return self.nombre

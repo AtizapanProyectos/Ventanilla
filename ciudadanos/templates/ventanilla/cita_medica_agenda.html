@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="wrap sec">
+    <a href="{% url 'mis_tramites' %}">← Volver a Mis trámites</a>
+    <h1>Agenda de cita médica</h1>
+    <p>{{ solicitud.tramite.direccion.nombre }} · Solicitud {{ solicitud.folio }}</p>
+    {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+    {% if turnos %}
+        <form method="post">
+            {% csrf_token %}
+            <p>
+                <label for="turno">Fecha y hora disponibles</label>
+                <select name="turno" id="turno" required>
+                    <option value="">Selecciona un horario</option>
+                    {% for fecha, hora in turnos %}
+                        <option value="{{ fecha|date:'Y-m-d' }}|{{ hora|time:'H:i:s' }}">{{ fecha|date:'l j \d\e F' }} · {{ hora|time:'H:i' }}</option>
+                    {% endfor %}
+                </select>
+            </p>
+            <button type="submit" class="btn-solid">Confirmar cita médica</button>
+        </form>
+    {% else %}
+        <p>No hay turnos disponibles en las próximas cuatro semanas.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="wrap sec">
+    <a href="{% url 'inicio' %}">← Volver al catálogo</a>
+    <h1>{{ tramite.nombre }}</h1>
+    <p>{{ tramite.descripcion }}</p>
+    <form method="post">
+        {% csrf_token %}
+        {% if recurrente %}
+            <p>Ya tienes un expediente clínico. Continúa para reservar tu cita.</p>
+        {% else %}
+            <h2>Ficha clínica de primera vez</h2>
+            <p>Paciente: {{ user.nombre }} {{ user.apellidos }} · CURP {{ user.curp }}</p>
+            <p>Completa tus datos y antecedentes. El personal clínico registra la exploración durante la consulta.</p>
+            {{ ficha.as_p }}
+        {% endif %}
+        <p><button class="btn-solid" type="submit">Continuar a horarios</button></p>
+    </form>
+</div>
+{% endblock %}
