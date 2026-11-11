@@ -249,3 +249,26 @@ class CitasMedicasTests(TestCase):
         self.client.force_login(self.ciudadano)
         self.assertContains(self.client.get(ticket), descarga)
         self.assertEqual(self.client.get(descarga).status_code, 200)
+
+    def test_borrado_clinico_en_cascada(self):
+        expediente = ExpedienteClinico.objects.create(ciudadano=self.ciudadano, **self.ficha)
+        evidencia = DocumentoClinico.objects.create(
+            expediente=expediente, nombre='evidencia.pdf', contenido=b'%PDF-1.4',
+        )
+        cita = Cita.objects.create(
+            ciudadano=self.ciudadano, tramite=self.tramite,
+            fecha=self.inicio_fecha.date(), hora=time(12, 30),
+        )
+        consulta = ConsultaClinica.objects.create(cita=cita, medico='Prueba', cedula_profesional='1234567')
+        historia = DocumentoClinico.objects.create(
+            expediente=expediente, consulta=consulta, nombre='historia.pdf', contenido=b'%PDF-1.4',
+        )
+
+        cita.delete()
+        self.assertFalse(ConsultaClinica.objects.filter(pk=consulta.pk).exists())
+        self.assertFalse(DocumentoClinico.objects.filter(pk=historia.pk).exists())
+        self.assertTrue(DocumentoClinico.objects.filter(pk=evidencia.pk).exists())
+
+        self.ciudadano.delete()
+        self.assertFalse(ExpedienteClinico.objects.filter(pk=expediente.pk).exists())
+        self.assertFalse(DocumentoClinico.objects.filter(pk=evidencia.pk).exists())

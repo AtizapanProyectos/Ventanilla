@@ -422,12 +422,7 @@ footer{
   gap:16px;flex-wrap:wrap;
 }
 .footer-logo{display:flex;align-items:center;gap:10px;}
-.footer-logo-badge{
-  width:34px;height:34px;border-radius:8px;
-  background:var(--p700);
-  display:flex;align-items:center;justify-content:center;
-}
-.footer-logo-badge svg{width:18px;height:18px;fill:white;}
+.footer-logo img{width:80px;height:auto;border-radius:8px;background:#fff;}
 .footer-name{font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:rgba(255,255,255,.7);}
 .footer-links{display:flex;gap:20px;flex-wrap:wrap;}
 .footer-links a{font-size:12.5px;color:rgba(255,255,255,.38);text-decoration:none;transition:color .15s;}
@@ -501,7 +496,7 @@ footer{
   
   <div class="nav-links">
     <a href="/" class="active">Trámites</a>
-    <a href="#">Servicios</a>
+    <a href="{% url 'inicio' %}#servicios-dif">Servicios</a>
     <a href="#">Dependencias</a>
     <a href="#">Transparencia</a>
     <a href="#">Contacto</a>
@@ -595,10 +590,8 @@ footer{
 <footer>
   <div class="footer-inner">
     <div class="footer-logo">
-      <div class="footer-logo-badge">
-        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2z" opacity=".9"/><path d="M12 8l4 2.5V16L12 18.5 8 16v-5.5L12 8z" fill="rgba(255,255,255,.55)"/></svg>
-      </div>
-      <span class="footer-name">Mi Municipio · Portal de Trámites</span>
+      <img src="{% static 'assets/DIF.png' %}" alt="Logo del DIF" width="80" height="45">
+      <span class="footer-name">Sistema municipal DIF</span>
     </div>
     <div class="footer-links">
       <a href="#">Aviso de privacidad</a>

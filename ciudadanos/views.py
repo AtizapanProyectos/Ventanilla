@@ -9,12 +9,12 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 import re
+from unicodedata import normalize
 from django.contrib.auth.decorators import login_required, user_passes_test
 import pdfplumber
 import datetime
 from django.utils import timezone
 import random
-from django.db.models import Q
 from django.db.models import Case, When, Value, IntegerField
 
 
@@ -22,31 +22,46 @@ Ciudadano = get_user_model()
 from .models import *
 from . import citas_medicas, panel_clinico
 
+SERVICIOS_DIF = (
+    ('Área Médica', 'Cita médica.', ('Cita Médica',)),
+    ('Servicio Social', 'Servicio social.', ('Servicio Social',)),
+    ('Administración', 'Cita para alta y renovación de cédula de proveedores.',
+     ('Cita para alta y renovación de cédula de proveedores', 'Inscripción al Padrón de Proveedores')),
+    ('Procuraduría', 'Estudio socioeconómico / Atención psicológica.',
+     ('Estudio socioeconómico', 'Atención psicológica')),
+    ('Centros de Desarrollo Comunitario', 'Talleres, capacitaciones y actividades.',
+     ('Talleres, capacitaciones y actividades',)),
+    ('Procuraduría del Adulto Mayor', 'Citas.', ('Cita para la Procuraduría del Adulto Mayor',)),
+    ('Estancias Infantiles', 'Citas e inicio de inscripción.',
+     ('Cita para Estancias Infantiles', 'Inscripción a Estancias Infantiles')),
+)
+
+
+def _texto_busqueda(texto):
+    return normalize('NFD', texto.lower()).encode('ascii', 'ignore').decode()
+
+
 def inicio(request):
-    # Obtenemos lo que el usuario escribió en el buscador (si no escribió nada, queda vacío '')
-    query = request.GET.get('q', '')
-    
-    if query:
-        # BÚSQUEDA INTELIGENTE: Busca en nombre o descripción del trámite, y en la dependencia
-        lista_tramites = Tramite.objects.filter(
-            Q(nombre__icontains=query) |
-            Q(descripcion__icontains=query) |
-            Q(direccion__nombre__icontains=query) |
-            Q(direccion__descripcion__icontains=query)
-        ).distinct() # distinct() evita que salgan duplicados
-    else:
-        # Si no buscó nada, mostramos todos
-        lista_tramites = Tramite.objects.all()
-
-    lista_direcciones = Direccion.objects.all()
-
-    contexto = {
-        'tramites': lista_tramites,
-        'direcciones': lista_direcciones,
-        'query': query # Le regresamos el query para que se quede escrito en la barrita
-    }
-
-    return render(request, 'ventanilla/index.html', contexto)
+    consulta = request.GET.get('q', '').strip()
+    filtro = _texto_busqueda(consulta)
+    tramites_por_nombre = {}
+    for tramite in Tramite.objects.only('nombre', 'es_cita_medica').order_by('-es_cita_medica', 'pk'):
+        tramites_por_nombre.setdefault(_texto_busqueda(tramite.nombre), tramite)
+    servicios = []
+    for area, descripcion, nombres in SERVICIOS_DIF:
+        tramites = [
+            tramites_por_nombre[clave] for nombre in nombres
+            if (clave := _texto_busqueda(nombre)) in tramites_por_nombre
+        ]
+        busqueda = _texto_busqueda(' '.join((area, descripcion, *nombres)))
+        servicios.append({
+            'area': area, 'descripcion': descripcion, 'tramites': tramites,
+            'busqueda': busqueda, 'visible': filtro in busqueda,
+        })
+    return render(request, 'ventanilla/index.html', {
+        'servicios': servicios, 'query': consulta,
+        'hay_resultados': any(servicio['visible'] for servicio in servicios),
+    })
 
 
 def registro(request):

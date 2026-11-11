@@ -267,7 +267,7 @@ class TurnoMedico(models.Model):
 
 class ExpedienteClinico(models.Model):
     ciudadano = models.OneToOneField(
-        Ciudadano, on_delete=models.PROTECT, related_name='expediente_clinico'
+        Ciudadano, on_delete=models.CASCADE, related_name='expediente_clinico'
     )
     creado = models.DateTimeField(auto_now_add=True)
     edad = models.PositiveSmallIntegerField()
@@ -307,7 +307,7 @@ class ConsultaClinica(models.Model):
         ('abdomen', 'Abdomen'), ('extremidades', 'Extremidades'), ('genitales', 'Genitales'),
     )
 
-    cita = models.OneToOneField(Cita, on_delete=models.PROTECT, related_name='consulta_clinica')
+    cita = models.OneToOneField(Cita, on_delete=models.CASCADE, related_name='consulta_clinica')
     elaborada = models.DateTimeField(auto_now_add=True)
     padecimiento_actual = models.TextField(blank=True)
     interrogatorio = models.TextField('interrogatorio por aparatos y sistemas', blank=True)
@@ -363,7 +363,7 @@ def validar_pdf_clinico(archivo):
 class DocumentoClinico(models.Model):
     expediente = models.ForeignKey(ExpedienteClinico, on_delete=models.CASCADE, related_name='documentos')
     consulta = models.OneToOneField(
-        ConsultaClinica, on_delete=models.PROTECT, null=True, blank=True,
+        ConsultaClinica, on_delete=models.CASCADE, null=True, blank=True,
         related_name='pdf_institucional', editable=False,
     )
     generado_por = models.ForeignKey(
