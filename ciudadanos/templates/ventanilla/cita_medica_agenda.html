@@ -7,7 +7,7 @@
   <a class="dif-back" href="{% url 'mis_tramites' %}">← Volver a Mis trámites</a>
   <header class="dif-hero">
     <p class="dif-kicker">DIF · Reserva tu turno</p>
-    <h1>Agenda de cita médica</h1>
+    <h1>{% if requisitos_cita %}Agenda tu cita de Servicio Social{% else %}Agenda de cita médica{% endif %}</h1>
     <p>Elige un día y revisa los turnos antes de confirmar.</p>
   </header>
   {% if error %}<p class="dif-alert" role="alert">{{ error }}</p>{% endif %}
@@ -55,7 +55,8 @@
       <p class="dif-muted">Solicitud {{ solicitud.folio }}</p>
       <hr>
       <p class="dif-selection" data-selection aria-live="polite">Selecciona un turno para ver el resumen.</p>
-      <button type="submit" class="btn-solid" data-submit>Confirmar cita médica</button>
+      {% include 'ventanilla/requisitos_cita.html' %}
+      <button type="submit" class="btn-solid" data-submit>{% if requisitos_cita %}Confirmar cita{% else %}Confirmar cita médica{% endif %}</button>
     </aside>
   </form>
 </main>

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<script defer src="{% static 'js/citas.js' %}"></script>
+<main class="dif-shell">
+  <a class="dif-back" href="{% if solicitud %}{% url 'mis_tramites' %}{% else %}{% url 'inicio' %}{% endif %}">← Volver</a>
+  <header class="dif-hero">
+    <p class="dif-kicker">Sistema Municipal DIF</p>
+    <h1>Servicio Social</h1>
+    {% if solicitud %}<p>Solicitud {{ solicitud.folio }} · {{ solicitud.get_estado_display }}</p>{% endif %}
+  </header>
+  <div class="dif-layout">
+    <section class="dif-card">
+      {% if puede_enviar %}
+        <h2>Requisitos de Servicio Social</h2>
+        <p>Completa los datos de tus estudios y adjunta los documentos solicitados en PDF, de hasta 5 MB cada uno.</p>
+        <form method="post" enctype="multipart/form-data" data-busy-form>
+          {% csrf_token %}
+          {{ formulario.non_field_errors }}
+          <fieldset class="dif-phase">
+            <legend>Datos académicos</legend>
+            <p>Créditos mínimos: 70% para licenciatura y 50% para nivel técnico.</p>
+            <div class="dif-fields">
+              {% for campo in formulario.visible_fields|slice:":2" %}
+                <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+                  {{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+                </div>
+              {% endfor %}
+            </div>
+          </fieldset>
+      {% else %}
+        <h2>Documentación de la solicitud</h2>
+        {% if solicitud %}
+          <p>{{ solicitud.get_nivel_estudios_display }}{% if solicitud.porcentaje_creditos != None %} · {{ solicitud.porcentaje_creditos }}% de créditos{% endif %}</p>
+        {% endif %}
+      {% endif %}
+      <div class="dif-fields">
+        {% for requisito, campo, archivo in formulario.documentos %}
+          <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+            {% if campo and puede_enviar %}{{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+            {% else %}<strong>{{ requisito.descripcion }}</strong>{% endif %}
+            {% if archivo %}
+              <p>{{ archivo.get_estado_validacion_display }}</p>
+              {% if archivo.observaciones %}<p>{{ archivo.observaciones }}</p>{% endif %}
+              <a href="{% url 'descargar_documento_servicio_social' archivo.pk %}" target="_blank" rel="noopener">Ver documento</a>
+            {% endif %}
+          </div>
+        {% empty %}
+          <p>Los requisitos de Servicio Social aún no están disponibles.</p>
+        {% endfor %}
+      </div>
+      {% if puede_enviar %}
+          <div class="dif-actions"><button class="btn-solid" type="submit" data-submit>Enviar a revisión</button></div>
+        </form>
+      {% endif %}
+    </section>
+    <aside class="dif-card dif-summary">
+      <h2>Carta de presentación</h2>
+      <p>Solicita a tu institución que dirija la carta a:</p>
+      <p><strong>C. Dafne Marilu Suarez Salazar</strong><br>
+      Coordinadora de Recursos Humanos<br>
+      Sistema Municipal DIF Atizapán de Zaragoza</p>
+    </aside>
+  </div>
+</main>
+{% endblock %}

@@ -90,15 +90,14 @@ def iniciar(request, tramite):
 DIAS_AGENDA = 28
 
 
-def _en_ventana(fecha, hora, ahora):
+def en_ventana(fecha, hora, ahora):
     return (
         ahora.date() <= fecha < ahora.date() + timedelta(days=DIAS_AGENDA)
         and (fecha, hora) > (ahora.date(), ahora.time())
     )
 
 
-def _calendario(tramite, ahora):
-    horarios = list(tramite.turnos_medicos.all())
+def calendario(tramite, ahora, horarios):
     ocupados = set(Cita.objects.filter(
         tramite=tramite,
         fecha__gte=ahora.date(),
@@ -109,9 +108,9 @@ def _calendario(tramite, ahora):
     for desplazamiento in range(35):
         fecha = inicio + timedelta(days=desplazamiento)
         turnos = [
-            (turno.hora, (fecha, turno.hora) in ocupados)
-            for turno in horarios
-            if turno.dia_semana == fecha.weekday() and _en_ventana(fecha, turno.hora, ahora)
+            (hora, (fecha, hora) in ocupados)
+            for dia_semana, hora in horarios
+            if dia_semana == fecha.weekday() and en_ventana(fecha, hora, ahora)
         ]
         dias.append({'fecha': fecha, 'turnos': turnos})
     return dias
@@ -124,7 +123,7 @@ def _reservar(solicitud, fecha, hora):
         solicitud = Solicitud.objects.select_for_update().get(pk=solicitud.pk)
         if Cita.objects.filter(solicitud=solicitud).exists():
             return True
-        if solicitud.estado != 'Aprobado' or not _en_ventana(fecha, hora, timezone.localtime()):
+        if solicitud.estado != 'Aprobado' or not en_ventana(fecha, hora, timezone.localtime()):
             return False
         if not TurnoMedico.objects.filter(
             tramite_id=solicitud.tramite_id, dia_semana=fecha.weekday(), hora=hora,
@@ -142,6 +141,17 @@ def _reservar(solicitud, fecha, hora):
     return True
 
 
+def leer_turno(valor):
+    try:
+        fecha, hora = valor.split('|')
+        hora = time.fromisoformat(hora)
+        if hora.tzinfo is None:
+            return date.fromisoformat(fecha), hora
+    except ValueError:
+        pass
+    return None
+
+
 @never_cache
 def agendar(request, solicitud):
     if Cita.objects.filter(solicitud=solicitud).exists():
@@ -151,20 +161,17 @@ def agendar(request, solicitud):
 
     error = ''
     if request.method == 'POST':
-        try:
-            fecha_texto, hora_texto = request.POST.get('turno', '').split('|')
-            fecha, hora = date.fromisoformat(fecha_texto), time.fromisoformat(hora_texto)
-            if hora.tzinfo is not None:
-                raise ValueError
-        except ValueError:
+        turno = leer_turno(request.POST.get('turno', ''))
+        if turno is None:
             error = 'Selecciona un turno de la lista.'
         else:
-            if _reservar(solicitud, fecha, hora):
+            if _reservar(solicitud, *turno):
                 messages.success(request, 'Tu cita médica quedó programada.')
                 return redirect('ticket_cita_medica', solicitud.pk)
             error = 'Ese turno ya no está disponible. Selecciona otro horario.'
 
     return render(request, 'ventanilla/cita_medica_agenda.html', {
         'solicitud': solicitud, 'error': error,
-        'dias': _calendario(solicitud.tramite, timezone.localtime()),
+        'dias': calendario(solicitud.tramite, timezone.localtime(),
+                           list(solicitud.tramite.turnos_medicos.values_list('dia_semana', 'hora'))),
     })

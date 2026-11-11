@@ -12,7 +12,7 @@
         <img src="{% static 'assets/DIF.png' %}" alt="Sistema Municipal DIF">
       </div>
       <p class="dif-kicker">Comprobante de cita</p>
-      <h1 id="titulo-ticket">Ticket de cita médica</h1>
+      <h1 id="titulo-ticket">{% if requisitos_cita %}Cita de Servicio Social{% else %}Ticket de cita médica{% endif %}</h1>
       <p class="dif-ticket-dependencia">{{ cita.tramite.direccion.nombre }}</p>
     </header>
     <div class="dif-ticket-horario">
@@ -31,6 +31,7 @@
       <div><dt>Folio de solicitud</dt><dd class="dif-ticket-folio">{{ cita.solicitud.folio }}</dd></div>
       <div><dt>Estado</dt><dd>{{ cita.get_estado_display }}</dd></div>
     </dl>
+    {% include 'ventanilla/requisitos_cita.html' %}
   </article>
   <div class="dif-ticket-acciones">
     <button class="btn-solid" type="button" onclick="window.print()">Imprimir ticket</button>

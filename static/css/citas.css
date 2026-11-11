@@ -153,6 +153,9 @@
 .dif-ticket-datos dd { margin: 4px 0 0; font-weight: 650; overflow-wrap: anywhere; }
 .dif-ticket-folio { font-family: monospace; }
 .dif-ticket-acciones { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
+.dif-requisitos-cita { margin-block: 14px; padding: 14px; border: 1px solid var(--p200); border-radius: 12px; }
+.dif-ticket > .dif-requisitos-cita { margin: 0 24px 22px; }
+.dif-requisitos-cita ul { padding-inline-start: 20px; margin-top: 6px; }
 
 @media print {
     body:has(.dif-ticket-page) { background: #fff; }

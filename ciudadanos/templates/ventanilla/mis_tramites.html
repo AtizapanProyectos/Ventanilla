@@ -185,9 +185,13 @@
                                     {% if sol.cita_agendada.estado == 'Cancelada' or sol.cita_agendada.estado == 'Reprogramada' %}
                                         <a class="btn-action" href="{% url 'iniciar_tramite' sol.tramite_id %}">Solicitar otra cita</a>
                                     {% endif %}
+                                {% elif sol.tramite.es_servicio_social %}
+                                    <a class="btn-action" href="{% url 'ticket_servicio_social' sol.id %}">Ver ticket e indicaciones</a>
                                 {% endif %}
                             {% elif sol.tramite.es_cita_medica %}
                                 <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar cita médica</a>
+                            {% elif sol.tramite.es_servicio_social and not sol.requisitos_validados %}
+                                <a href="{% url 'corregir_solicitud' sol.id %}" class="btn-action">Revisar requisitos de Servicio Social</a>
                             {% else %}
                                 <p style="margin: 0 0 10px 0; font-size: 12.5px; color: var(--text2);">Trámite aprobado. Seleccione fecha y hora para acudir a ventanilla.</p>
                                 <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar Cita Presencial</a>

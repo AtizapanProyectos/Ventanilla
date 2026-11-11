@@ -75,8 +75,8 @@ class TurnoMedicoInline(admin.TabularInline):
 
 @admin.register(Tramite)
 class TramiteAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'direccion', 'tiempo', 'costo', 'modalidad', 'es_cita_medica')
-    list_filter = ('direccion', 'modalidad', 'es_cita_medica')
+    list_display = ('nombre', 'direccion', 'tiempo', 'costo', 'modalidad', 'es_cita_medica', 'es_servicio_social')
+    list_filter = ('direccion', 'modalidad', 'es_cita_medica', 'es_servicio_social')
     search_fields = ('nombre',)
     inlines = [RequisitoInline, TurnoMedicoInline]
 
@@ -91,6 +91,9 @@ class RequisitoAdmin(admin.ModelAdmin):
 class ArchivoRequisitoInline(admin.TabularInline):
     model = ArchivoRequisito
     extra = 0
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).defer('contenido_pdf')
 
 
 @admin.register(Solicitud)
@@ -107,6 +110,9 @@ class ArchivoRequisitoAdmin(admin.ModelAdmin):
     list_display = ('solicitud', 'requisito', 'estado_validacion', 'fecha_subida')
     list_filter = ('estado_validacion',)
     search_fields = ('solicitud__folio',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).defer('contenido_pdf')
 
 
 class CitaAdminForm(forms.ModelForm):

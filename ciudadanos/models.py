@@ -109,6 +109,7 @@ class Tramite(models.Model):
         'Cita médica', default=False,
         help_text='Usa la ficha clínica y los turnos médicos en lugar de los requisitos generales.',
     )
+    es_servicio_social = models.BooleanField('Servicio social estudiantil', default=False)
 
     def __str__(self):
         return self.nombre
@@ -125,6 +126,7 @@ class Requisito(models.Model):
 # --- GESTIÓN DE SOLICITUDES Y ARCHIVOS ---
 
 class Solicitud(models.Model):
+    NIVELES_SERVICIO_SOCIAL = [('licenciatura', 'Licenciatura'), ('tecnico', 'Nivel técnico')]
     ESTADO_CHOICES = [
         ('Pendiente', 'Pendiente de revisión'),
         ('En proceso', 'En proceso'),
@@ -142,6 +144,11 @@ class Solicitud(models.Model):
     )
 
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Pendiente')
+    nivel_estudios = models.CharField(max_length=12, choices=NIVELES_SERVICIO_SOCIAL, blank=True)
+    porcentaje_creditos = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        permissions = [('validar_servicio_social', 'Puede validar solicitudes de Servicio Social')]
 
     def save(self, *args, **kwargs):
         if not self.folio:
@@ -161,7 +168,9 @@ class ArchivoRequisito(models.Model):
 
     solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='archivos')
     requisito = models.ForeignKey(Requisito, on_delete=models.CASCADE)
-    archivo = models.FileField(upload_to='tramites_archivos/')
+    archivo = models.FileField(upload_to='tramites_archivos/', blank=True)
+    contenido_pdf = models.BinaryField(null=True, blank=True)
+    nombre_pdf = models.CharField(max_length=255, blank=True, editable=False)
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
     estado_validacion = models.CharField(max_length=20, choices=ESTADO_DOC_CHOICES, default='Pendiente')

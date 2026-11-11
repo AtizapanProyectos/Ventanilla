@@ -12,7 +12,7 @@ from pypdf import PdfReader
 
 from .models import (
     Cita, Ciudadano, ConsultaClinica, Direccion, DocumentoClinico, ExpedienteClinico,
-    Solicitud, Tramite, TurnoMedico,
+    HorarioDireccion, Solicitud, Tramite, TurnoMedico,
 )
 
 
@@ -89,6 +89,79 @@ class RegistroTests(TestCase):
         self.assertRedirects(self.client.post(reverse('login_funcionario'), {
             'curp': curp_pegada, 'password': nueva,
         }), reverse('panel_funcionario'))
+
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class ServicioSocialTests(TestCase):
+    def test_carga_revision_correccion_y_agenda(self):
+        tramite = Tramite.objects.get(es_servicio_social=True)
+        requisitos = list(tramite.requisitos.all())
+        self.assertEqual(len(requisitos), 6)
+        HorarioDireccion.objects.create(
+            direccion=tramite.direccion, dia_semana=0,
+            hora_inicio=time(12), hora_fin=time(13), duracion_cita_minutos=30,
+        )
+        aspirante = Ciudadano.objects.create_user('ASPIRANTEQA', 'aspirante@example.com', is_active=True)
+        revisor = Ciudadano.objects.create_user(
+            'REVISORQA', 'revisor@example.com', is_active=True, is_staff=True,
+        )
+        revisor.user_permissions.add(Permission.objects.get(codename='validar_servicio_social'))
+        inicio = reverse('iniciar_tramite', args=[tramite.pk])
+        self.client.force_login(aspirante)
+        self.assertContains(self.client.get(reverse('inicio')), inicio)
+        self.assertContains(self.client.get(inicio), 'Dafne Marilu Suarez Salazar')
+        self.assertContains(self.client.post(inicio, {
+            'nivel_estudios': 'licenciatura', 'porcentaje_creditos': 69,
+        }), 'al menos 70%')
+        self.assertFalse(Solicitud.objects.exists())
+
+        datos = {'nivel_estudios': 'tecnico', 'porcentaje_creditos': 50}
+        for requisito in requisitos:
+            datos[f'req_{requisito.pk}'] = SimpleUploadedFile('requisito.pdf', b'%PDF-1.4\n', 'application/pdf')
+        self.assertRedirects(self.client.post(inicio, datos), reverse('mis_tramites'))
+        solicitud = Solicitud.objects.get()
+        agenda = reverse('agendar_cita', args=[solicitud.pk])
+        revisar = reverse('revisar_solicitud', args=[solicitud.pk])
+        corregir = reverse('corregir_solicitud', args=[solicitud.pk])
+        self.assertRedirects(self.client.get(inicio), corregir)
+        self.assertRedirects(self.client.get(agenda), reverse('mis_tramites'))
+        primero = solicitud.archivos.first()
+        descarga = reverse('descargar_documento_servicio_social', args=[primero.pk])
+        self.assertEqual(Client().get(descarga).status_code, 404)
+        self.assertEqual(self.client.get(descarga).status_code, 200)
+
+        self.client.force_login(revisor)
+        self.assertContains(self.client.get(reverse('panel_funcionario')), solicitud.folio)
+        self.assertContains(self.client.get(revisar), 'Nivel técnico')
+        self.assertEqual(self.client.get(descarga).status_code, 200)
+        revision = {f'estado_doc_{archivo.pk}': 'Aprobado' for archivo in solicitud.archivos.all()}
+        self.client.post(revisar, {**revision, f'estado_doc_{primero.pk}': 'Rechazado',
+                                  f'obs_doc_{primero.pk}': 'Documento ilegible'})
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, 'Rechazado')
+        self.client.force_login(aspirante)
+        self.assertContains(self.client.get(corregir), 'Documento ilegible')
+        self.assertRedirects(self.client.post(corregir, {
+            'nivel_estudios': 'tecnico', 'porcentaje_creditos': 50,
+            f'req_{primero.requisito_id}': SimpleUploadedFile('corregido.pdf', b'%PDF-1.4\n', 'application/pdf'),
+        }), reverse('mis_tramites'))
+        self.client.force_login(revisor)
+        self.client.post(revisar, revision)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, 'Aprobado')
+        self.client.force_login(aspirante)
+        ahora = datetime(2026, 11, 9, 9, tzinfo=ZoneInfo('America/Mexico_City'))
+        with patch('ciudadanos.servicio_social.timezone.localtime', return_value=ahora):
+            self.assertContains(self.client.get(agenda), 'Folder azul cielo tamaño carta')
+            self.assertContains(self.client.post(agenda, {'turno': '2026-11-09|11:00:00'}), 'ya no está disponible')
+            ticket = reverse('ticket_servicio_social', args=[solicitud.pk])
+            for _ in range(2):
+                self.assertRedirects(self.client.post(agenda, {'turno': '2026-11-09|12:30:00'}), ticket)
+            self.assertContains(self.client.get(ticket), 'Certificado médico expedido por el DIF')
+            self.assertEqual(Cita.objects.filter(solicitud=solicitud).count(), 1)
 
 
 @override_settings(STORAGES={

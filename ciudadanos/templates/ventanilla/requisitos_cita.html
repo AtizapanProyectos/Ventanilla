@@ -1,0 +1,8 @@
+{% if requisitos_cita %}
+  <section class="dif-requisitos-cita">
+    <h3>Trae el día de la cita</h3>
+    <ul>
+      {% for requisito in requisitos_cita %}<li>{{ requisito }}</li>{% endfor %}
+    </ul>
+  </section>
+{% endif %}

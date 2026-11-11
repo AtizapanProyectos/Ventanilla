@@ -7,6 +7,7 @@ from django.contrib.auth import login, authenticate, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.core.exceptions import PermissionDenied
 from django.views.csrf import csrf_failure
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_safe
@@ -17,12 +18,12 @@ import pdfplumber
 import datetime
 from django.utils import timezone
 import random
-from django.db.models import Case, When, Value, IntegerField
+from django.db.models import Case, When, Value, IntegerField, Q
 
 
 Ciudadano = get_user_model()
 from .models import *
-from . import citas_medicas, panel_clinico
+from . import citas_medicas, panel_clinico, servicio_social
 
 SERVICIOS_DIF = (
     ('Área Médica', 'Cita médica.', ('Cita Médica',)),
@@ -249,7 +250,9 @@ def procesar_curp_pdf(request):
 def perfil_ciudadano(request):
     usuario = request.user
     documento = Documento.objects.filter(ciudadano=usuario).first()
-    archivos_requisito = ArchivoRequisito.objects.filter(solicitud__ciudadano=usuario)
+    archivos_requisito = ArchivoRequisito.objects.filter(
+        solicitud__ciudadano=usuario, solicitud__tramite__es_servicio_social=False,
+    ).defer('contenido_pdf')
     
     edicion_habilitada = False
     error_password = None
@@ -324,6 +327,8 @@ def iniciar_tramite(request, tramite_id):
     tramite = get_object_or_404(Tramite, id=tramite_id)
     if tramite.es_cita_medica:
         return citas_medicas.iniciar(request, tramite)
+    if tramite.es_servicio_social:
+        return servicio_social.cuestionario(request, tramite)
     # Convertimos a lista para poder inyectarle atributos temporales
     requisitos = list(tramite.requisitos.all()) 
 
@@ -332,6 +337,7 @@ def iniciar_tramite(request, tramite_id):
         # Buscamos si ya existe un archivo aprobado para este ciudadano con la misma descripción
         archivo_previo = ArchivoRequisito.objects.filter(
             solicitud__ciudadano=request.user,
+            solicitud__tramite__es_servicio_social=False,
             requisito__descripcion=req.descripcion,
             estado_validacion='Aprobado' # Garantizamos que sea un doc válido
         ).order_by('-fecha_subida').first()
@@ -393,11 +399,13 @@ def mis_tramites(request):
     proxima_cita = citas_usuario.first()
 
     for sol in mis_solicitudes:
-        if sol.tramite.es_cita_medica:
+        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social:
             cita = getattr(sol, 'cita', None)
         else:
             cita = citas_usuario.filter(tramite=sol.tramite).first()
         sol.cita_agendada = cita 
+        if sol.tramite.es_servicio_social and sol.estado == 'Aprobado' and not cita:
+            sol.requisitos_validados = servicio_social.validada(sol)
 
     contexto = {
         'solicitudes': mis_solicitudes,
@@ -415,7 +423,7 @@ def es_funcionario(user):
 
 
 def puede_abrir_panel(user):
-    return es_funcionario(user) or panel_clinico.personal_clinico(user)
+    return es_funcionario(user) or panel_clinico.personal_clinico(user) or servicio_social.puede_validar(user)
 
 # 2. Tu nueva vista de Login para Funcionarios
 def login_funcionario(request):
@@ -457,8 +465,13 @@ def panel_funcionario(request):
     
     todas_las_citas = Cita.objects.filter(estado='Programada').order_by('fecha', 'hora')
     if not es_funcionario(request.user):
-        todas_las_solicitudes = todas_las_solicitudes.filter(tramite__es_cita_medica=True)
-        todas_las_citas = todas_las_citas.filter(tramite__es_cita_medica=True)
+        filtro = Q(pk__in=[])
+        if panel_clinico.personal_clinico(request.user):
+            filtro |= Q(tramite__es_cita_medica=True)
+        if servicio_social.puede_validar(request.user):
+            filtro |= Q(tramite__es_servicio_social=True)
+        todas_las_solicitudes = todas_las_solicitudes.filter(filtro)
+        todas_las_citas = todas_las_citas.filter(filtro)
     hoy = timezone.localdate()
 
     citas_hoy = todas_las_citas.filter(fecha=hoy)
@@ -466,7 +479,7 @@ def panel_funcionario(request):
     citas_pasadas = todas_las_citas.filter(fecha__lt=hoy)
 
     for sol in todas_las_solicitudes:
-        if sol.tramite.es_cita_medica:
+        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social:
             sol.cita_agendada = getattr(sol, 'cita', None)
             continue
         cita = Cita.objects.filter(ciudadano=sol.ciudadano, tramite=sol.tramite, estado='Programada').first()
@@ -481,13 +494,19 @@ def panel_funcionario(request):
     
     return render(request, 'ventanilla/panel_funcionario.html', contexto)
 
-@user_passes_test(es_funcionario, login_url='login_funcionario')
+@user_passes_test(puede_abrir_panel, login_url='login_funcionario')
 def revisar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(Solicitud, id=solicitud_id)
+    if solicitud.tramite.es_servicio_social:
+        if not servicio_social.puede_validar(request.user):
+            raise PermissionDenied
+        return servicio_social.revisar(request, solicitud)
+    if not es_funcionario(request.user):
+        raise PermissionDenied
     if solicitud.tramite.es_cita_medica:
         expediente = get_object_or_404(ExpedienteClinico, ciudadano=solicitud.ciudadano)
         return redirect('panel_expediente_clinico', expediente.pk)
-    archivos = solicitud.archivos.all()
+    archivos = solicitud.archivos.defer('contenido_pdf')
 
     if request.method == 'POST':
         nuevo_estado_gral = request.POST.get('estado_solicitud')
@@ -509,11 +528,13 @@ def revisar_solicitud(request, solicitud_id):
 
     return render(request, 'ventanilla/revisar_solicitud.html', {'solicitud': solicitud, 'archivos': archivos})
 
-@login_required(login_url='login')
+@login_required(login_url='iniciar_sesion')
 def corregir_solicitud(request, solicitud_id):
     # 👇 CAMBIO: antes filtraba por nombre_ciudadano=request.user.username
     solicitud = get_object_or_404(Solicitud, id=solicitud_id, ciudadano=request.user)
-    archivos = solicitud.archivos.all()
+    if solicitud.tramite.es_servicio_social:
+        return servicio_social.cuestionario(request, solicitud.tramite, solicitud)
+    archivos = solicitud.archivos.defer('contenido_pdf')
 
     if request.method == 'POST':
         hubo_correcciones = False
@@ -550,6 +571,8 @@ def agendar_cita(request, solicitud_id):
 
     if solicitud.tramite.es_cita_medica:
         return citas_medicas.agendar(request, solicitud)
+    if solicitud.tramite.es_servicio_social:
+        return servicio_social.agendar(request, solicitud)
 
     # Aquí traemos los horarios que la dependencia configuró
     horarios_disponibles = solicitud.tramite.direccion.horarios.all()
@@ -582,7 +605,19 @@ def agendar_cita(request, solicitud_id):
 def ticket_cita_medica(request, solicitud_id):
     cita = get_object_or_404(
         Cita.objects.select_related('tramite__direccion', 'solicitud', 'ciudadano'),
-        solicitud_id=solicitud_id, solicitud__ciudadano=request.user,
+        solicitud_id=solicitud_id, solicitud__ciudadano=request.user, tramite__es_servicio_social=False,
     )
     documento = DocumentoClinico.objects.filter(consulta__cita=cita).defer('contenido').first()
     return render(request, 'ventanilla/cita_medica_ticket.html', {'cita': cita, 'documento': documento})
+
+
+@login_required(login_url='iniciar_sesion')
+@never_cache
+def ticket_servicio_social(request, solicitud_id):
+    cita = get_object_or_404(
+        Cita.objects.select_related('tramite__direccion', 'solicitud', 'ciudadano'),
+        solicitud_id=solicitud_id, solicitud__ciudadano=request.user, tramite__es_servicio_social=True,
+    )
+    return render(request, 'ventanilla/cita_medica_ticket.html', {
+        'cita': cita, 'requisitos_cita': servicio_social.REQUISITOS_CITA,
+    })
