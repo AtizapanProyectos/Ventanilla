@@ -57,8 +57,13 @@ class ConsultaForm(forms.ModelForm):
             )
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, expediente, **kwargs):
         super().__init__(*args, **kwargs)
+        for nombre in ExpedienteClinico.CAMPOS_ANTECEDENTES:
+            self.fields[nombre] = ExpedienteClinico._meta.get_field(nombre).formfield(
+                widget=forms.Textarea(attrs={'rows': 3}),
+            )
+            self.initial[nombre] = getattr(expediente, nombre)
         for nombre in ('padecimiento_actual', 'diagnostico', 'acciones_linea_vida', 'pronostico'):
             self.fields[nombre].required = True
         for campo in self.fields.values():
@@ -77,6 +82,7 @@ class ConsultaForm(forms.ModelForm):
     @property
     def secciones_adicionales(self):
         return (
+            ('Antecedentes clínicos', [self[nombre] for nombre in ExpedienteClinico.CAMPOS_ANTECEDENTES]),
             ('Signos vitales', [self[nombre] for nombre in self.VITALES]),
             ('Interrogatorio por aparatos y sistemas', [
                 *[self[f'revision_sistemas_{nombre}'] for nombre, _ in ConsultaClinica.SISTEMAS],
@@ -124,16 +130,24 @@ def cita_detalle(request, pk):
 
     with transaction.atomic():
         consulta_cita = Cita.objects.filter(pk=pk, tramite__es_cita_medica=True)
+        expedientes = ExpedienteClinico.objects.all()
         if request.method == 'POST':
             consulta_cita = consulta_cita.select_for_update()
+            expedientes = expedientes.select_for_update()
         cita = get_object_or_404(consulta_cita)
-        expediente = get_object_or_404(ExpedienteClinico, ciudadano=cita.ciudadano)
+        expediente = get_object_or_404(expedientes, ciudadano_id=cita.ciudadano_id)
         consulta = getattr(cita, 'consulta_clinica', None)
         documento = DocumentoClinico.objects.filter(consulta=consulta).defer('contenido').first() if consulta else None
         disponible = cita.estado in ('Programada', 'Atendida') and not documento
         puede_capturar = disponible and _puede_capturar(request.user, consulta)
         datos = request.POST if request.method == 'POST' else None
-        formulario = ConsultaForm(datos, instance=consulta)
+        formulario = ConsultaForm(datos, instance=consulta, expediente=expediente)
+        if consulta is None:
+            medico = f'{request.user.nombre} {request.user.apellidos}'.strip()
+            for campo, valor in (('medico', medico), ('cedula_profesional', request.user.cedula_profesional)):
+                if valor:
+                    formulario.initial[campo] = valor
+                    formulario.fields[campo].disabled = True
         if request.method == 'POST' and not documento:
             if not puede_capturar:
                 raise PermissionDenied
@@ -141,6 +155,13 @@ def cita_detalle(request, pk):
                 consulta = formulario.save(commit=False)
                 consulta.cita = cita
                 consulta.save()
+                antecedentes = [
+                    campo for campo in ExpedienteClinico.CAMPOS_ANTECEDENTES if campo in request.POST
+                ]
+                for campo in antecedentes:
+                    setattr(expediente, campo, formulario.cleaned_data[campo])
+                if antecedentes:
+                    expediente.save(update_fields=antecedentes)
                 documento = DocumentoClinico.objects.create(
                     expediente=expediente, consulta=consulta, generado_por=request.user,
                     nombre=f'Historia-clinica-{cita.folio_cita}.pdf',

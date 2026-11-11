@@ -44,6 +44,7 @@ class Ciudadano(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     nombre = models.CharField(max_length=150)
     apellidos = models.CharField(max_length=150)
+    cedula_profesional = models.CharField('cédula profesional', max_length=30, blank=True)
     
     # --- DATOS EXTRAÍDOS DEL PDF ---
     fecha_nacimiento = models.CharField(max_length=20, blank=True, null=True)
@@ -266,6 +267,11 @@ class TurnoMedico(models.Model):
 
 
 class ExpedienteClinico(models.Model):
+    CAMPOS_ANTECEDENTES = (
+        'antecedentes_familiares', 'antecedentes_no_patologicos',
+        'antecedentes_patologicos', 'antecedentes_gineco_obstetricos',
+    )
+
     ciudadano = models.OneToOneField(
         Ciudadano, on_delete=models.CASCADE, related_name='expediente_clinico'
     )

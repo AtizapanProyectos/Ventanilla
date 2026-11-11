@@ -20,31 +20,22 @@ class FichaClinicaForm(forms.ModelForm):
             ('Domicilio y contacto', [self[n] for n in (
                 'lugar_origen', 'lugar_residencia', 'domicilio', 'telefono', 'tutor', 'parentesco',
             )]),
-            ('Antecedentes', [self[n] for n in (
-                'antecedentes_familiares', 'antecedentes_no_patologicos',
-                'antecedentes_patologicos', 'antecedentes_gineco_obstetricos',
-            )]),
         ]
 
     def clean(self):
         datos = super().clean()
         edad = datos.get('edad')
-        if (edad is not None and edad < 18) or datos.get('tutor') or datos.get('parentesco'):
-            for campo in ('tutor', 'parentesco'):
+        for campo in ('tutor', 'parentesco'):
+            if edad is not None and edad < 18:
                 if not datos.get(campo):
                     self.add_error(campo, 'Completa los datos del padre o tutor.')
+            else:
+                datos[campo] = ''
         return datos
 
     class Meta:
         model = ExpedienteClinico
-        exclude = ('ciudadano',)
-        widgets = {
-            campo: forms.Textarea(attrs={'rows': 3})
-            for campo in (
-                'antecedentes_familiares', 'antecedentes_no_patologicos',
-                'antecedentes_patologicos', 'antecedentes_gineco_obstetricos',
-            )
-        }
+        exclude = ('ciudadano', *ExpedienteClinico.CAMPOS_ANTECEDENTES)
 
 
 @never_cache

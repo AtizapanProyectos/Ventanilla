@@ -64,3 +64,95 @@
 .dif-dialog-body summary{font-weight:700;cursor:pointer}
 @media(max-width:680px){.dif-layout,.dif-fields{grid-template-columns:1fr}.dif-summary{position:static}.dif-shell{padding-inline:12px}.dif-card{border-radius:15px}body:has(.dif-shell) .wa-fab{display:none}}
 @media(prefers-reduced-motion:reduce){.dif-phase:not([hidden]){animation:none}}
+
+.dif-confirmacion, .dif-cierre {
+    padding: 20px;
+    border: 1px solid var(--p200);
+    border-radius: 16px;
+    background: var(--p50);
+}
+.dif-cierre {
+    border-color: #a9d5cb;
+    background: #eff9f6;
+}
+.dif-cierre-icono {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    background: #ccece4;
+    color: #155747;
+    font-weight: 750;
+}
+.dif-cierre-folio {
+    margin: 10px 0;
+    font-family: monospace;
+    color: var(--text2);
+}
+.dif-cierre .btn-solid { text-decoration: none; }
+
+.dif-ticket-page { max-width: 510px; }
+.dif-ticket {
+    overflow: hidden;
+    border: 1px solid var(--p200);
+    border-top: 5px solid var(--p700);
+    border-radius: 20px;
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 12px 36px #28204414;
+}
+.dif-ticket-header { padding: 14px 24px 24px; text-align: center; }
+.dif-ticket-logos {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-height: 90px;
+    margin-bottom: 8px;
+}
+.dif-ticket-logos img:first-child { width: 55px; height: auto; }
+.dif-ticket-logos img:last-child { width: min(180px, 60%); height: auto; }
+.dif-ticket-header h1 {
+    margin: 6px 0;
+    font-size: clamp(1.5rem, 6vw, 2rem);
+    color: var(--p800);
+}
+.dif-ticket-dependencia { color: var(--text2); }
+.dif-ticket-horario {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px 24px;
+    border-block: 1px dashed var(--p300);
+    background: var(--p50);
+}
+.dif-ticket-horario span, .dif-ticket-datos dt {
+    display: block;
+    color: var(--text2);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.dif-ticket-horario time {
+    display: block;
+    margin-top: 4px;
+    color: var(--p800);
+    font-weight: 750;
+}
+.dif-ticket-horario div:last-child { border-inline-start: 1px solid var(--p200); padding-inline-start: 14px; }
+.dif-ticket-horario div:last-child time { font-size: 1.45rem; line-height: 1; }
+.dif-ticket-datos { display: grid; gap: 14px; padding: 22px 24px; }
+.dif-ticket-datos dd { margin: 4px 0 0; font-weight: 650; overflow-wrap: anywhere; }
+.dif-ticket-folio { font-family: monospace; }
+.dif-ticket-acciones { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
+
+@media print {
+    body:has(.dif-ticket-page) { background: #fff; }
+    body:has(.dif-ticket-page) > :not(.dif-ticket-page),
+    .dif-ticket-page > :not(.dif-ticket) { display: none !important; }
+    .dif-ticket-page { max-width: 120mm; margin: 0 auto; padding: 0; }
+    .dif-ticket { break-inside: avoid; box-shadow: none; print-color-adjust: exact; }
+}

@@ -26,7 +26,9 @@ if (dialogoClinico && typeof dialogoClinico.showModal === 'function') {
             }
             if (!boton) cerrar.focus();
             else {
-                const foco = cuerpo.querySelector('.dif-field-error input, .dif-field-error textarea, [role="alert"], h2');
+                const foco = finalizada?.querySelector('h3') ||
+                    cuerpo.querySelector('.dif-field-error input, .dif-field-error textarea, [role="alert"]') ||
+                    cuerpo.querySelector('h2');
                 if (foco) {
                     foco.tabIndex = -1;
                     foco.focus();
@@ -60,8 +62,42 @@ if (dialogoClinico && typeof dialogoClinico.showModal === 'function') {
         const formulario = evento.target.closest('[data-clinical-form]');
         if (!formulario) return;
         evento.preventDefault();
-        if (formulario.dataset.confirm && !window.confirm(formulario.dataset.confirm)) return;
+        if (formulario.hasAttribute('data-finalizar-consulta')) {
+            const confirmacion = formulario.querySelector('[data-confirmacion]');
+            confirmacion.hidden = false;
+            confirmacion.querySelector('h3').focus();
+            return;
+        }
         cargar(formulario.action, { method: 'POST', body: new FormData(formulario) }, evento.submitter);
+    });
+
+    cuerpo.addEventListener('click', evento => {
+        const boton = evento.target.closest('[data-seguir-editando], [data-confirmar-cierre]');
+        if (!boton) return;
+        const formulario = boton.form;
+        if (boton.hasAttribute('data-seguir-editando')) {
+            formulario.querySelector('[data-confirmacion]').hidden = true;
+            formulario.querySelector('button[type="submit"]').focus();
+        } else if (formulario.reportValidity()) {
+            cargar(formulario.action, { method: 'POST', body: new FormData(formulario) }, boton);
+        }
+    });
+
+    cuerpo.addEventListener('keydown', evento => {
+        const campo = evento.target;
+        if (evento.key !== 'Enter' || evento.shiftKey || evento.isComposing ||
+            !campo.matches('input:not([type="hidden"]), textarea, select')) return;
+        const formulario = campo.closest('[data-finalizar-consulta]');
+        if (!formulario) return;
+        evento.preventDefault();
+        if (!campo.reportValidity()) return;
+        const campos = Array.from(formulario.querySelectorAll(
+            'input:not([type="hidden"]):enabled, textarea:enabled, select:enabled'
+        ));
+        const siguiente = campos[campos.indexOf(campo) + 1];
+        const seccion = siguiente?.closest('details');
+        if (seccion) seccion.open = true;
+        (siguiente || formulario.querySelector('button[type="submit"]')).focus();
     });
 
     cerrar.addEventListener('click', () => dialogoClinico.close());

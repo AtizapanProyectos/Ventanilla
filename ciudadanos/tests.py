@@ -114,11 +114,18 @@ class CitasMedicasTests(TestCase):
 
     def test_primera_cita_ticket_y_cita_recurrente(self):
         self.assertContains(self.client.get(self.inicio), 'Ficha clínica de primera vez')
+        self.assertNotContains(self.client.get(self.inicio), 'name="antecedentes_familiares"')
         self.assertContains(self.client.post(self.inicio, {}), 'Ficha clínica de primera vez')
         self.assertContains(self.client.post(self.inicio, {**self.ficha, 'edad': 12}), 'datos del padre o tutor')
         self.assertFalse(Solicitud.objects.exists())
-        primera = self.client.post(self.inicio, self.ficha)
+        primera = self.client.post(self.inicio, {
+            **self.ficha, 'tutor': 'No corresponde', 'parentesco': 'Padre',
+            'antecedentes_familiares': 'Dato enviado desde el formulario ciudadano',
+        })
         solicitud = Solicitud.objects.get(ciudadano=self.ciudadano)
+        expediente = ExpedienteClinico.objects.get(ciudadano=self.ciudadano)
+        self.assertEqual((expediente.tutor, expediente.parentesco), ('', ''))
+        self.assertEqual(expediente.antecedentes_familiares, '')
         agenda = reverse('agendar_cita', args=[solicitud.pk])
         ticket = reverse('ticket_cita_medica', args=[solicitud.pk])
         self.assertRedirects(primera, agenda)
@@ -195,6 +202,8 @@ class CitasMedicasTests(TestCase):
     def test_panel_finaliza_una_vez_y_publica_pdf_privado(self):
         self.client.post(self.inicio, self.ficha)
         expediente = ExpedienteClinico.objects.get()
+        expediente.antecedentes_patologicos = 'Antecedente anterior'
+        expediente.save(update_fields=['antecedentes_patologicos'])
         solicitud = Solicitud.objects.get()
         self.client.post(reverse('agendar_cita', args=[solicitud.pk]), {'turno': self.turno})
         cita = Cita.objects.get()
@@ -208,14 +217,21 @@ class CitasMedicasTests(TestCase):
                 'view_documentoclinico',
             ),
         ))
+        self.staff.nombre = 'Médico'
+        self.staff.apellidos = 'de prueba'
+        self.staff.cedula_profesional = '7654321'
+        self.staff.save(update_fields=['nombre', 'apellidos', 'cedula_profesional'])
         self.client.force_login(self.staff)
         self.assertContains(self.client.get(reverse('panel_funcionario')), 'data-clinical-modal')
         self.assertContains(self.client.get(detalle), 'Motivo de atención', count=1)
+        self.assertContains(self.client.get(detalle), 'value="7654321"')
+        self.assertContains(self.client.get(detalle), 'Antecedente anterior')
         self.assertContains(self.client.post(detalle, {}), 'Revisa los campos marcados')
         captura = {
             'padecimiento_actual': 'Motivo de prueba', 'diagnostico': 'Análisis de prueba',
             'acciones_linea_vida': 'Acción de prueba', 'pronostico': 'Resolución de prueba',
             'medico': 'Personal de prueba', 'cedula_profesional': '1234567',
+            'antecedentes_familiares': 'Antecedente familiar capturado por el médico',
             'peso_kg': '70.20', 'talla_m': '1.75', 'tension_arterial': '120/80',
             'frecuencia_cardiaca': '72', 'frecuencia_respiratoria': '16',
             'temperatura_c': '36.5', 'saturacion_oxigeno': '98', 'glucosa_mg_dl': '92',
@@ -228,13 +244,19 @@ class CitasMedicasTests(TestCase):
         cita.refresh_from_db()
         self.assertEqual(cita.estado, 'Atendida')
         documento = DocumentoClinico.objects.get(consulta__cita=cita)
+        expediente.refresh_from_db()
+        self.assertEqual(expediente.antecedentes_familiares, 'Antecedente familiar capturado por el médico')
+        self.assertEqual(expediente.antecedentes_patologicos, 'Antecedente anterior')
         self.assertEqual(documento.generado_por, self.staff)
+        self.assertEqual(documento.consulta.medico, 'Médico de prueba')
+        self.assertEqual(documento.consulta.cedula_profesional, '7654321')
         self.assertContains(self.client.get(historia), documento.nombre)
         pdf = PdfReader(BytesIO(documento.contenido))
         self.assertEqual(len(pdf.pages), 3)
         self.assertIn('Motivo de prueba', pdf.pages[0].extract_text())
         self.assertIn(f'EXP-{expediente.pk}', pdf.pages[0].extract_text())
         self.assertIn('Registro cardiovascular de prueba', pdf.pages[0].extract_text())
+        self.assertIn('Antecedente familiar capturado por el médico', pdf.pages[0].extract_text())
         segunda_pagina = pdf.pages[1].extract_text()
         for valor in ('Resolución de prueba', '70.20', '1.75', '22.92', '120/80', '72', '16', '36.5', '98', '92',
                       'Registro de piel de prueba', 'Exploración de cabeza de prueba'):

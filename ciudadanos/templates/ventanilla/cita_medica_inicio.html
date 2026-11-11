@@ -18,7 +18,7 @@
         <p>Ya tienes un expediente clínico. Continúa para reservar tu cita.</p>
       {% else %}
         <h2>Ficha clínica de primera vez</h2>
-        <p>Completa tus datos y antecedentes. El personal clínico registrará la exploración durante tu consulta.</p>
+        <p>Completa tus datos de identificación y contacto para continuar a los horarios.</p>
         <ol class="dif-steps" aria-label="Fases del formulario">
           {% for titulo, campos in ficha.pasos %}<li data-step><span>{{ forloop.counter }}</span>{{ titulo }}</li>{% endfor %}
         </ol>
@@ -29,7 +29,7 @@
             <legend tabindex="-1">{{ titulo }}</legend>
             <div class="dif-fields">
               {% for campo in campos %}
-                <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
+                <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}"{% if campo.name == 'tutor' or campo.name == 'parentesco' %} data-tutor{% endif %}>
                   {{ campo.label_tag }}
                   {% if campo.field.required %}<small>Obligatorio</small>{% endif %}
                   {{ campo }}

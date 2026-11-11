@@ -12,9 +12,11 @@
 </dl>
 <a href="{% url 'panel_expediente_clinico' expediente.pk %}" data-clinical-modal>Ver expediente</a>
 {% if documento %}
-  <section data-finalizado="{{ cita.pk }}">
-    <h3>Historia clínica generada</h3>
-    <p>La consulta está cerrada y el PDF quedó guardado en el expediente.</p>
+  <section class="dif-cierre" data-finalizado="{{ cita.pk }}" aria-labelledby="titulo-cierre">
+    <div class="dif-cierre-icono" aria-hidden="true">✓</div>
+    <h3 id="titulo-cierre">Historia clínica generada</h3>
+    <p>La cita quedó atendida y el PDF está disponible en el expediente.</p>
+    <p class="dif-cierre-folio">{{ cita.folio_cita }}</p>
     {% if puede_descargar %}
       <a class="btn-solid" href="{% url 'descargar_documento_clinico' documento.pk %}">Descargar PDF</a>
     {% endif %}
@@ -23,7 +25,7 @@
   <section>
     <h3>Captura de la consulta</h3>
     <p>Al finalizar se guardará la atención y se generará el PDF para el expediente y el paciente.</p>
-    <form method="post" action="{% url 'panel_cita_medica' cita.pk %}" data-clinical-form data-confirm="¿Finalizar la consulta y guardar el PDF institucional?">
+    <form method="post" action="{% url 'panel_cita_medica' cita.pk %}" data-clinical-form data-finalizar-consulta>
       {% csrf_token %}
       {{ formulario.non_field_errors }}
       {% if formulario.errors %}<p class="dif-alert" role="alert">Revisa los campos marcados.</p>{% endif %}
@@ -35,9 +37,9 @@
         {% endfor %}
       </div>
       {% for titulo, campos in formulario.secciones_adicionales %}
-        <details {% if forloop.first or formulario.errors %}open{% endif %}>
+        <details {% if forloop.first or titulo == 'Signos vitales' or formulario.errors %}open{% endif %}>
           <summary>{{ titulo }}</summary>
-          {% if forloop.first %}<p>El IMC se calcula al guardar el peso y la talla.</p>{% endif %}
+          {% if titulo == 'Signos vitales' %}<p>El IMC se calcula al guardar el peso y la talla.</p>{% endif %}
           <div class="dif-fields">
             {% for campo in campos %}
               <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">
@@ -48,6 +50,14 @@
         </details>
       {% endfor %}
       <div class="dif-actions"><button class="btn-solid" type="submit">Finalizar y generar PDF</button></div>
+      <section class="dif-confirmacion" data-confirmacion hidden aria-labelledby="titulo-confirmacion">
+        <h3 id="titulo-confirmacion" tabindex="-1">¿Finalizar la consulta?</h3>
+        <p>La cita se marcará como atendida y se guardará el PDF institucional en el expediente del paciente.</p>
+        <div class="dif-actions">
+          <button class="dif-secondary" type="button" data-seguir-editando>Seguir editando</button>
+          <button class="btn-solid" type="button" data-confirmar-cierre>Confirmar y generar PDF</button>
+        </div>
+      </section>
     </form>
   </section>
 {% endif %}

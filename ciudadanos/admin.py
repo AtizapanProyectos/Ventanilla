@@ -32,6 +32,7 @@ class CiudadanoAdmin(UserAdmin):
         ('Domicilio', {
             'fields': ('cp', 'colonia', 'calle', 'numero', 'mz_lt')
         }),
+        ('Datos profesionales', {'fields': ('cedula_profesional',)}),
         ('Permisos', {
             'description': 'Para entrar a Django Admin, la cuenta debe estar activa y marcada como staff.',
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')

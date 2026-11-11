@@ -4,7 +4,21 @@ document.querySelectorAll('[data-wizard]').forEach(form => {
     const anterior = form.querySelector('[data-prev]');
     const siguiente = form.querySelector('[data-next]');
     const enviar = form.querySelector('[data-submit]');
+    const edad = form.elements.edad;
+    const tutor = form.querySelectorAll('[data-tutor]');
     let actual = Math.max(0, fases.findIndex(fase => fase.querySelector('.dif-field-error')));
+
+    function actualizarTutor() {
+        const menor = edad.value !== '' && edad.valueAsNumber >= 0 && edad.valueAsNumber < 18;
+        tutor.forEach(grupo => {
+            grupo.hidden = !menor;
+            const campo = grupo.querySelector('input');
+            campo.disabled = !menor;
+            campo.required = menor;
+        });
+    }
+    edad.addEventListener('input', actualizarTutor);
+    actualizarTutor();
 
     function mostrar(indice, enfocar = false) {
         actual = indice;

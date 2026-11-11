@@ -14,11 +14,13 @@
     <dt>Origen</dt><dd>{{ expediente.lugar_origen }}</dd>
     <dt>Residencia</dt><dd>{{ expediente.lugar_residencia }}</dd>
     <dt>Domicilio</dt><dd>{{ expediente.domicilio }}</dd>
-    <dt>Padre o tutor</dt><dd>{{ expediente.tutor|default:"No registrado" }}{% if expediente.parentesco %} · {{ expediente.parentesco }}{% endif %}</dd>
+    {% if expediente.edad < 18 %}
+      <dt>Padre o tutor</dt><dd>{{ expediente.tutor|default:"No registrado" }}{% if expediente.parentesco %} · {{ expediente.parentesco }}{% endif %}</dd>
+    {% endif %}
   </dl>
 </details>
 <details>
-  <summary>Respuestas de la ficha clínica</summary>
+  <summary>Antecedentes clínicos</summary>
   <dl>
     <dt>Antecedentes heredofamiliares</dt><dd>{{ expediente.antecedentes_familiares|default:"Sin respuesta" }}</dd>
     <dt>Antecedentes no patológicos</dt><dd>{{ expediente.antecedentes_no_patologicos|default:"Sin respuesta" }}</dd>
