@@ -7,7 +7,9 @@ from django.contrib.auth import login, authenticate, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.views.csrf import csrf_failure
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_safe
 import re
 from unicodedata import normalize
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -64,6 +66,7 @@ def inicio(request):
     })
 
 
+@never_cache
 def registro(request):
     if request.method == 'POST':
         curp = request.POST.get('curp', '').strip().upper()
@@ -126,9 +129,29 @@ def registro(request):
             raise
 
         login(request, nuevo_ciudadano)
-        return redirect('inicio')
+        request.session['registro_completado'] = nuevo_ciudadano.pk
+        return redirect('registro_exito')
 
     return render(request, 'registro.html')
+
+def _registro_completado(request):
+    return request.user.is_authenticated and request.session.get('registro_completado') == request.user.pk
+
+
+@never_cache
+@require_safe
+def registro_exito(request):
+    if not _registro_completado(request):
+        return redirect('inicio')
+    return render(request, 'registro_exito.html')
+
+
+def csrf_error(request, reason=''):
+    ruta = request.resolver_match
+    if request.method == 'POST' and ruta and ruta.url_name == 'registro' and _registro_completado(request):
+        return redirect('registro_exito')
+    return csrf_failure(request, reason=reason)
+
 
 def activar_cuenta(request, uidb64, token):
     try:

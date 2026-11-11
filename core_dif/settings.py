@@ -137,6 +137,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTH_USER_MODEL = 'ciudadanos.Ciudadano'
+CSRF_FAILURE_VIEW = 'ciudadanos.views.csrf_error'
 
 # Dominios de confianza para CSRF (Railway)
 CSRF_TRUSTED_ORIGINS = config(

@@ -150,7 +150,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (formRegistro) {
+        const botonRegistro = formRegistro.querySelector('button[type="submit"]');
+        const textoRegistro = botonRegistro.textContent;
+        let enviandoRegistro = false;
+        window.addEventListener('pageshow', () => {
+            enviandoRegistro = false;
+            botonRegistro.disabled = false;
+            botonRegistro.textContent = textoRegistro;
+            formRegistro.removeAttribute('aria-busy');
+        });
         formRegistro.addEventListener("submit", function(e) {
+            if (enviandoRegistro) {
+                e.preventDefault();
+                return;
+            }
             
             // A. Verificar que el OCR se completó
             const extNombre = document.getElementById("ext-nombre").value;
@@ -292,6 +305,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            if (!e.defaultPrevented) {
+                enviandoRegistro = true;
+                botonRegistro.disabled = true;
+                botonRegistro.textContent = 'Creando cuenta…';
+                formRegistro.setAttribute('aria-busy', 'true');
+            }
         });
     }
 });

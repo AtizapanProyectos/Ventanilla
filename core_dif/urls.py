@@ -12,6 +12,7 @@ urlpatterns = [
     # --- TUS RUTAS ---
     path('', views.inicio, name='inicio'),
     path('registro/', views.registro, name='registro'),
+    path('registro/exito/', views.registro_exito, name='registro_exito'),
     path('activar/<uidb64>/<token>/', views.activar_cuenta, name='activar_cuenta'),
     path('entrar/', views.iniciar_sesion, name='iniciar_sesion'),
     path('salir/', views.cerrar_sesion, name='cerrar_sesion'),

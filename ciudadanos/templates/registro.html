@@ -12,7 +12,7 @@
       <h2>Crear cuenta ciudadana</h2>
     </div>
     
-    <form id="form-registro" class="auth-form" method="POST" enctype="multipart/form-data">
+    <form id="form-registro" class="auth-form" method="POST" action="{% url 'registro' %}" enctype="multipart/form-data">
       {% csrf_token %}
       
       <!-- ZONA DE CARGA OCR (Restringida a PDF oficial) -->

@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from pypdf import PdfReader
 
@@ -22,18 +22,32 @@ from .models import (
 })
 class RegistroTests(TestCase):
     def test_registro_activa_y_abre_sesion_sin_correo(self):
-        respuesta = self.client.post(reverse('registro'), {
+        navegador = Client(enforce_csrf_checks=True)
+        registro = reverse('registro')
+        exito = reverse('registro_exito')
+        navegador.get(registro)
+        token = navegador.cookies['csrftoken'].value
+        datos = {
             'curp': 'PACIENTE3', 'email': 'paciente3@example.com', 'nombre': 'Paciente',
             'paterno': 'Prueba', 'materno': '', 'password': 'Prueba-123', 'password-conf': 'Prueba-123',
             'cp': '01234', 'colonia': 'Colonia sin catálogo', 'mz': 'Mz 2 Lt 4',
-        })
-        self.assertRedirects(respuesta, reverse('inicio'))
+            'csrfmiddlewaretoken': token,
+        }
+        self.assertEqual(Client(enforce_csrf_checks=True).post(registro, datos).status_code, 403)
+        self.assertFalse(Ciudadano.objects.filter(pk='PACIENTE3').exists())
+        respuesta = navegador.post(registro, datos, follow=True)
+        self.assertRedirects(respuesta, exito)
+        self.assertContains(respuesta, 'Tu cuenta está activa')
         usuario = Ciudadano.objects.get(pk='PACIENTE3')
         self.assertTrue(usuario.is_active)
         self.assertFalse(usuario.is_staff)
         self.assertEqual(usuario.colonia, 'Colonia sin catálogo')
         self.assertEqual(usuario.mz_lt, 'Mz 2 Lt 4')
-        self.assertEqual(self.client.session['_auth_user_id'], usuario.pk)
+        self.assertEqual(navegador.session['_auth_user_id'], usuario.pk)
+        self.assertNotEqual(navegador.cookies['csrftoken'].value, token)
+        self.assertRedirects(navegador.post(registro, datos), exito)
+        self.assertEqual(Ciudadano.objects.filter(pk=usuario.pk).count(), 1)
+        self.assertRedirects(self.client.get(exito), reverse('inicio'))
         self.assertEqual(len(mail.outbox), 0)
 
     def test_admin_exige_que_la_cuenta_staff_este_activa(self):
