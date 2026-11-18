@@ -1,5 +1,6 @@
 from datetime import date, datetime, time
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -231,6 +232,44 @@ class CitasMedicasTests(TestCase):
         self.assertEqual(Solicitud.objects.filter(ciudadano=self.ciudadano).count(), 2)
         self.assertEqual(ExpedienteClinico.objects.filter(ciudadano=self.ciudadano).count(), 1)
 
+    def test_cita_dental_usa_el_formato_y_deja_el_reverso_intacto(self):
+        dental = Tramite.objects.get(es_cita_dental=True)
+        TurnoMedico.objects.create(tramite=dental, dia_semana=0, hora=time(12, 30))
+        inicio = reverse('iniciar_tramite', args=[dental.pk])
+        portada = self.client.get(reverse('inicio')).content.decode()
+        self.assertLess(portada.index('>Cita Médica'), portada.index('>Cita Dental'))
+        self.client.post(inicio, self.ficha)
+        solicitud = Solicitud.objects.get(tramite=dental)
+        agenda = reverse('agendar_cita', args=[solicitud.pk])
+        ticket = reverse('ticket_cita_medica', args=[solicitud.pk])
+        self.assertContains(self.client.get(agenda), 'Agenda de cita dental')
+        self.assertRedirects(self.client.post(agenda, {'turno': self.turno}), ticket)
+        self.assertContains(self.client.get(ticket), 'Ticket de cita dental')
+        cita = Cita.objects.get(solicitud=solicitud)
+        detalle = reverse('panel_cita_medica', args=[cita.pk])
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(detalle), 'name="hipertension"')
+        self.assertNotContains(self.client.get(detalle), 'name="signos_vitales"')
+        respuesta = self.client.post(detalle, {
+            'edad': 35, 'fecha_primera_atencion': '2026-11-09', 'tipo_sangre': 'O+',
+            'diabetes': 'no', 'hipertension': 'si', 'enfermedad_actual': 'Captura odontológica de prueba',
+            'odontograma': 'Este dato debe ignorarse',
+        })
+        self.assertContains(respuesta, 'Historia odontológica generada')
+        cita.refresh_from_db()
+        self.assertEqual(cita.estado, 'Atendida')
+        consulta = cita.consulta_clinica
+        self.assertEqual(consulta.datos_odontologicos['hipertension'], 'si')
+        self.assertNotIn('odontograma', consulta.datos_odontologicos)
+        documento = consulta.pdf_institucional
+        pdf = PdfReader(BytesIO(documento.contenido))
+        plantilla = PdfReader(Path(__file__).resolve().parents[1] / 'Tramites' / 'Historia Clinica Odontologia.pdf')
+        self.assertEqual(len(pdf.pages), 2)
+        self.assertIn('Captura odontológica de prueba', pdf.pages[0].extract_text())
+        self.assertEqual(pdf.pages[1].get_contents().get_data(), plantilla.pages[1].get_contents().get_data())
+        self.client.force_login(self.ciudadano)
+        self.assertContains(self.client.get(ticket), 'Descargar historia odontológica en PDF')
+
     def test_turno_ocupado_y_fuera_de_horario(self):
         Cita.objects.create(
             ciudadano=self.otro, tramite=self.tramite, fecha=date(2026, 11, 9), hora=time(12, 30),
@@ -381,3 +420,133 @@ class CitasMedicasTests(TestCase):
         self.ciudadano.delete()
         self.assertFalse(ExpedienteClinico.objects.filter(pk=expediente.pk).exists())
         self.assertFalse(DocumentoClinico.objects.filter(pk=evidencia.pk).exists())
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class ProveedoresTests(TestCase):
+    def setUp(self):
+        from .models import ArchivoRequisito, Requisito
+        self.Archivo = ArchivoRequisito
+        self.Requisito = Requisito
+        self.tramite = Tramite.objects.get(es_alta_proveedor=True)
+        self.usuario = Ciudadano.objects.create_user(
+            'PROVEEDORQA', 'proveedor@example.com', is_active=True, nombre='Proveedor', apellidos='Prueba',
+        )
+        self.otro = Ciudadano.objects.create_user('OTROPROVQA', 'otroprov@example.com', is_active=True)
+        self.revisor = Ciudadano.objects.create_user(
+            'ADMINPROVQA', 'adminprov@example.com', is_active=True, is_staff=True,
+        )
+        self.revisor.user_permissions.add(Permission.objects.get(codename='validar_proveedores'))
+        self.client.force_login(self.usuario)
+        self.inicio = reverse('iniciar_tramite', args=[self.tramite.pk])
+        self.perfil = {
+            'tipo_persona': 'fisica', 'rfc': 'LOHA050220AB1', 'accion': 'enviar',
+        }
+
+    def datos_carga(self, perfil):
+        from .proveedores import requisitos_aplicables
+        datos = dict(perfil)
+        for req in requisitos_aplicables(self.tramite, {
+            'tipo_persona': perfil['tipo_persona'], 'tiene_representante': perfil['tipo_persona'] == 'moral',
+        }):
+            datos[f'req_{req.pk}'] = SimpleUploadedFile('documento.pdf', b'%PDF-1.4', 'application/pdf')
+        return datos
+
+    def test_persona_fisica_reutiliza_y_se_valida_antes_de_cita(self):
+        req = self.tramite.requisitos.get(tipo_documento='acta_nacimiento')
+        anterior = Solicitud.objects.create(
+            ciudadano=self.usuario, tramite=Tramite.objects.get(es_servicio_social=True), folio='TRAM-PREVIO',
+        )
+        origen = self.Archivo.objects.create(
+            solicitud=anterior, requisito=req, contenido_pdf=b'%PDF-1.4', nombre_pdf='acta.pdf',
+            tipo_documento='acta_nacimiento', titular_documento=f'CURP:{self.usuario.pk}',
+            estado_validacion='Aprobado',
+        )
+        preparada = self.client.post(self.inicio, {**self.perfil, 'accion': 'preparar'})
+        self.assertContains(preparada, 'Documento reutilizado')
+        self.assertNotContains(preparada, 'Acta constitutiva')
+        self.assertNotContains(preparada, 'Poder suficiente')
+        datos = self.datos_carga(self.perfil)
+        del datos[f'req_{req.pk}']
+        self.assertRedirects(self.client.post(self.inicio, datos), reverse('mis_tramites'))
+        solicitud = Solicitud.objects.get(tramite=self.tramite)
+        self.assertEqual(solicitud.archivos.count(), 7)
+        vinculo = solicitud.archivos.get(requisito=req)
+        self.assertEqual(vinculo.origen, origen)
+        self.assertIsNone(vinculo.contenido_pdf)
+        self.assertEqual(vinculo.estado_validacion, 'Pendiente')
+        self.assertEqual(origen.estado_validacion, 'Aprobado')
+        descarga = reverse('documento_proveedor', args=[vinculo.pk])
+        self.assertEqual(b''.join(self.client.get(descarga).streaming_content), b'%PDF-1.4')
+        agenda = reverse('agendar_cita', args=[solicitud.pk])
+        self.assertRedirects(self.client.get(agenda), reverse('mis_tramites'))
+        self.client.force_login(self.otro)
+        self.assertEqual(self.client.get(descarga).status_code, 404)
+        self.client.force_login(self.revisor)
+        self.assertContains(self.client.get(reverse('panel_funcionario')), solicitud.folio)
+        revision = reverse('revisar_solicitud', args=[solicitud.pk])
+        self.assertContains(self.client.get(revision), 'Documento reutilizado')
+        decisiones = {f'estado_doc_{a.pk}': 'Aprobado' for a in solicitud.archivos.all()}
+        self.client.post(revision, {**decisiones, f'estado_doc_{vinculo.pk}': 'Rechazado',
+                                   f'obs_doc_{vinculo.pk}': 'Reemplazar documento'})
+        origen.refresh_from_db()
+        self.assertEqual(origen.estado_validacion, 'Aprobado')
+        self.client.force_login(self.usuario)
+        correccion = reverse('corregir_solicitud', args=[solicitud.pk])
+        self.assertContains(self.client.get(correccion), 'Reemplazar documento')
+        self.assertRedirects(self.client.post(correccion, {
+            'accion': 'enviar', f'req_{req.pk}': SimpleUploadedFile('nueva.pdf', b'%PDF-1.4 NUEVA'),
+        }), reverse('mis_tramites'))
+        vinculo.refresh_from_db()
+        self.assertIsNone(vinculo.origen)
+        self.client.force_login(self.revisor)
+        self.client.post(revision, decisiones)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, 'Aprobado')
+        HorarioDireccion.objects.create(
+            direccion=self.tramite.direccion, dia_semana=0, hora_inicio=time(12),
+            hora_fin=time(13), duracion_cita_minutos=30,
+        )
+        self.client.force_login(self.usuario)
+        ahora = datetime(2026, 11, 23, 9, tzinfo=ZoneInfo('America/Mexico_City'))
+        with patch('ciudadanos.proveedores.timezone.localtime', return_value=ahora):
+            ticket = reverse('ticket_proveedor', args=[solicitud.pk])
+            for _ in range(2):
+                self.assertRedirects(self.client.post(agenda, {'turno': '2026-11-23|12:30:00'}), ticket)
+            self.assertContains(self.client.get(ticket), self.perfil['rfc'])
+            self.assertEqual(Cita.objects.filter(solicitud=solicitud).count(), 1)
+
+    def test_moral_requiere_razon_social_y_no_reutiliza_otro_rfc(self):
+        from .proveedores import PerfilProveedorForm, reutilizable
+        perfil = {**self.perfil, 'tipo_persona': 'moral', 'rfc': 'DIF050220AB1', 'razon_social': 'Empresa de Prueba'}
+        self.assertFalse(PerfilProveedorForm({**perfil, 'razon_social': ''}).is_valid())
+        datos = PerfilProveedorForm(perfil)
+        self.assertTrue(datos.is_valid())
+        req = self.tramite.requisitos.get(tipo_documento='cedula_fiscal')
+        anterior = Solicitud.objects.create(ciudadano=self.usuario, tramite=self.tramite, folio='TRAM-OTRAEMPRESA')
+        self.Archivo.objects.create(
+            solicitud=anterior, requisito=req, nombre_pdf='rfc.pdf', contenido_pdf=b'%PDF-1.4',
+            tipo_documento='cedula_fiscal', titular_documento='RFC:OTR050220AB1', estado_validacion='Aprobado',
+        )
+        self.assertIsNone(reutilizable(req, datos.cleaned_data, self.usuario))
+        self.assertRedirects(self.client.post(self.inicio, self.datos_carga(perfil)), reverse('mis_tramites'))
+        solicitud = Solicitud.objects.exclude(pk=anterior.pk).get(tramite=self.tramite)
+        self.assertEqual(solicitud.archivos.count(), 8)
+        self.assertTrue(solicitud.archivos.filter(requisito__tipo_documento='poder_representante').exists())
+        self.assertFalse(solicitud.archivos.filter(requisito__tipo_documento='acta_nacimiento').exists())
+        self.assertEqual(solicitud.datos_proveedor['razon_social'], 'Empresa de Prueba')
+
+    def test_registro_moral_guarda_identidad_y_entra_con_curp(self):
+        self.client.logout()
+        respuesta = self.client.post(reverse('registro'), {
+            'curp': 'NUEVOPROVQA', 'email': 'nuevoprov@example.com', 'nombre': 'Representante',
+            'paterno': 'Prueba', 'password': 'Prueba-123', 'password-conf': 'Prueba-123',
+            'colonia': 'Centro', 'tipo_persona': 'moral', 'rfc': 'DIF050220AB1', 'razon_social': 'Empresa',
+        })
+        self.assertRedirects(respuesta, reverse('registro_exito'))
+        usuario = Ciudadano.objects.get(pk='NUEVOPROVQA')
+        self.assertEqual(usuario.rfc, 'DIF050220AB1')
+        self.assertTrue(usuario.tiene_representante)
+        self.assertEqual(self.client.session['_auth_user_id'], usuario.pk)

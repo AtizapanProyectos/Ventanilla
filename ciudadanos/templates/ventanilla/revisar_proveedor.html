@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<main class="dif-shell">
+  <a href="{% url 'panel_funcionario' %}" class="dif-back">← Panel de funcionarios</a>
+  <header class="dif-hero"><p class="dif-kicker">Administración · {{ solicitud.folio }}</p><h1>Validar alta de proveedor</h1></header>
+  <section class="dif-card">
+    <h2>{{ solicitud.datos_proveedor.nombre_proveedor }}</h2>
+    <p>RFC {{ solicitud.datos_proveedor.rfc }} · {% if solicitud.datos_proveedor.tipo_persona == 'moral' %}Persona Moral{% else %}Persona Física{% endif %}</p>
+    <p>Propietario o representante · {{ solicitud.ciudadano.nombre }} {{ solicitud.ciudadano.apellidos }} · {{ solicitud.ciudadano.curp }}</p>
+    <p>Revisa vigencia, identidad y periodos fiscales antes de aprobar cada documento.</p>
+    <form method="post">
+      {% csrf_token %}
+      {% for archivo in archivos %}
+      <fieldset class="dif-phase">
+        <legend>{{ archivo.requisito.descripcion }}</legend>
+        {% if archivo.origen_id %}<p>Documento reutilizado · {{ archivo.origen.solicitud.tramite.nombre }} · {{ archivo.origen.solicitud.folio }}</p>{% else %}<p>Documento cargado para esta solicitud</p>{% endif %}
+        <a href="{% url 'documento_proveedor' archivo.pk %}" target="_blank" rel="noopener">Abrir documento</a>
+        <div class="dif-fields">
+          <div class="dif-field"><label for="estado-{{ archivo.pk }}">Validación</label>
+            <select id="estado-{{ archivo.pk }}" name="estado_doc_{{ archivo.pk }}"{% if solicitud.cita %} disabled{% endif %}>
+              {% for valor, etiqueta in archivo.ESTADO_DOC_CHOICES %}<option value="{{ valor }}"{% if archivo.estado_validacion == valor %} selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="dif-field"><label for="obs-{{ archivo.pk }}">Observaciones</label>
+            <textarea id="obs-{{ archivo.pk }}" name="obs_doc_{{ archivo.pk }}"{% if solicitud.cita %} disabled{% endif %}>{{ archivo.observaciones|default:'' }}</textarea>
+          </div>
+        </div>
+      </fieldset>
+      {% endfor %}
+      {% if not solicitud.cita %}<button class="btn-solid" type="submit">Guardar validación</button>{% endif %}
+    </form>
+  </section>
+</main>
+{% endblock %}

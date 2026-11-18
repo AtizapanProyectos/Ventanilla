@@ -23,13 +23,13 @@ from django.db.models import Case, When, Value, IntegerField, Q
 
 Ciudadano = get_user_model()
 from .models import *
-from . import citas_medicas, panel_clinico, servicio_social
+from . import citas_medicas, panel_clinico, proveedores, servicio_social
 
 SERVICIOS_DIF = (
-    ('Área Médica', 'Cita médica.', ('Cita Médica',)),
+    ('Área Médica', 'Citas médicas y dentales.', ('Cita Médica', 'Cita Dental')),
     ('Servicio Social', 'Servicio social.', ('Servicio Social',)),
     ('Administración', 'Cita para alta y renovación de cédula de proveedores.',
-     ('Cita para alta y renovación de cédula de proveedores', 'Inscripción al Padrón de Proveedores')),
+     ('Alta de Proveedor', 'Cita para alta y renovación de cédula de proveedores', 'Inscripción al Padrón de Proveedores')),
     ('Procuraduría', 'Estudio socioeconómico / Atención psicológica.',
      ('Estudio socioeconómico', 'Atención psicológica')),
     ('Centros de Desarrollo Comunitario', 'Talleres, capacitaciones y actividades.',
@@ -88,6 +88,17 @@ def registro(request):
         telefono_casa = request.POST.get('telefono_casa')
         
         apellidos_completos = f"{paterno} {materno}".strip()
+        tipo_persona = request.POST.get('tipo_persona', 'fisica')
+        if tipo_persona not in dict(Ciudadano.TIPOS_PERSONA):
+            return render(request, 'registro.html', {'error': 'Selecciona el tipo de persona.'})
+        datos_proveedor = {'tipo_persona': tipo_persona}
+        if tipo_persona == 'moral' or request.POST.get('rfc'):
+            perfil_proveedor = proveedores.PerfilProveedorForm(request.POST)
+            if not perfil_proveedor.is_valid():
+                return render(request, 'registro.html', {
+                    'error': 'Revisa los datos del proveedor.', 'perfil_proveedor': perfil_proveedor,
+                })
+            datos_proveedor = perfil_proveedor.cleaned_data
         
         if not curp or len(curp) > 18 or not password or password != request.POST.get('password-conf'):
             return render(request, 'registro.html', {'error': 'Revisa la CURP y confirma tu contraseña.'})
@@ -112,6 +123,7 @@ def registro(request):
                     fecha_nacimiento=fecha_nacimiento, cp=cp, colonia=colonia,
                     calle=calle, numero=numero, mz_lt=mz_lt, genero=genero,
                     telefono_cel=telefono_cel, telefono_casa=telefono_casa,
+                    **datos_proveedor,
                 )
                 
                 archivo_pdf = request.FILES.get('curp_file')
@@ -133,7 +145,7 @@ def registro(request):
         request.session['registro_completado'] = nuevo_ciudadano.pk
         return redirect('registro_exito')
 
-    return render(request, 'registro.html')
+    return render(request, 'registro.html', {'perfil_proveedor': proveedores.PerfilProveedorForm()})
 
 def _registro_completado(request):
     return request.user.is_authenticated and request.session.get('registro_completado') == request.user.pk
@@ -252,6 +264,7 @@ def perfil_ciudadano(request):
     documento = Documento.objects.filter(ciudadano=usuario).first()
     archivos_requisito = ArchivoRequisito.objects.filter(
         solicitud__ciudadano=usuario, solicitud__tramite__es_servicio_social=False,
+        solicitud__tramite__es_alta_proveedor=False, origen__isnull=True, vinculos__isnull=True,
     ).defer('contenido_pdf')
     
     edicion_habilitada = False
@@ -329,6 +342,8 @@ def iniciar_tramite(request, tramite_id):
         return citas_medicas.iniciar(request, tramite)
     if tramite.es_servicio_social:
         return servicio_social.cuestionario(request, tramite)
+    if tramite.es_alta_proveedor:
+        return proveedores.iniciar(request, tramite)
     # Convertimos a lista para poder inyectarle atributos temporales
     requisitos = list(tramite.requisitos.all()) 
 
@@ -338,6 +353,7 @@ def iniciar_tramite(request, tramite_id):
         archivo_previo = ArchivoRequisito.objects.filter(
             solicitud__ciudadano=request.user,
             solicitud__tramite__es_servicio_social=False,
+            solicitud__tramite__es_alta_proveedor=False, origen__isnull=True,
             requisito__descripcion=req.descripcion,
             estado_validacion='Aprobado' # Garantizamos que sea un doc válido
         ).order_by('-fecha_subida').first()
@@ -399,13 +415,15 @@ def mis_tramites(request):
     proxima_cita = citas_usuario.first()
 
     for sol in mis_solicitudes:
-        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social:
+        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social or sol.tramite.es_alta_proveedor:
             cita = getattr(sol, 'cita', None)
         else:
             cita = citas_usuario.filter(tramite=sol.tramite).first()
         sol.cita_agendada = cita 
         if sol.tramite.es_servicio_social and sol.estado == 'Aprobado' and not cita:
             sol.requisitos_validados = servicio_social.validada(sol)
+        if sol.tramite.es_alta_proveedor and sol.estado == 'Aprobado' and not cita:
+            sol.requisitos_validados = proveedores.validada(sol)
 
     contexto = {
         'solicitudes': mis_solicitudes,
@@ -423,7 +441,8 @@ def es_funcionario(user):
 
 
 def puede_abrir_panel(user):
-    return es_funcionario(user) or panel_clinico.personal_clinico(user) or servicio_social.puede_validar(user)
+    return (es_funcionario(user) or panel_clinico.personal_clinico(user)
+            or servicio_social.puede_validar(user) or proveedores.puede_validar(user))
 
 # 2. Tu nueva vista de Login para Funcionarios
 def login_funcionario(request):
@@ -470,6 +489,8 @@ def panel_funcionario(request):
             filtro |= Q(tramite__es_cita_medica=True)
         if servicio_social.puede_validar(request.user):
             filtro |= Q(tramite__es_servicio_social=True)
+        if proveedores.puede_validar(request.user):
+            filtro |= Q(tramite__es_alta_proveedor=True)
         todas_las_solicitudes = todas_las_solicitudes.filter(filtro)
         todas_las_citas = todas_las_citas.filter(filtro)
     hoy = timezone.localdate()
@@ -479,7 +500,7 @@ def panel_funcionario(request):
     citas_pasadas = todas_las_citas.filter(fecha__lt=hoy)
 
     for sol in todas_las_solicitudes:
-        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social:
+        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social or sol.tramite.es_alta_proveedor:
             sol.cita_agendada = getattr(sol, 'cita', None)
             continue
         cita = Cita.objects.filter(ciudadano=sol.ciudadano, tramite=sol.tramite, estado='Programada').first()
@@ -497,6 +518,10 @@ def panel_funcionario(request):
 @user_passes_test(puede_abrir_panel, login_url='login_funcionario')
 def revisar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(Solicitud, id=solicitud_id)
+    if solicitud.tramite.es_alta_proveedor:
+        if not proveedores.puede_validar(request.user):
+            raise PermissionDenied
+        return proveedores.revisar(request, solicitud)
     if solicitud.tramite.es_servicio_social:
         if not servicio_social.puede_validar(request.user):
             raise PermissionDenied
@@ -532,6 +557,8 @@ def revisar_solicitud(request, solicitud_id):
 def corregir_solicitud(request, solicitud_id):
     # 👇 CAMBIO: antes filtraba por nombre_ciudadano=request.user.username
     solicitud = get_object_or_404(Solicitud, id=solicitud_id, ciudadano=request.user)
+    if solicitud.tramite.es_alta_proveedor:
+        return proveedores.iniciar(request, solicitud.tramite, solicitud)
     if solicitud.tramite.es_servicio_social:
         return servicio_social.cuestionario(request, solicitud.tramite, solicitud)
     archivos = solicitud.archivos.defer('contenido_pdf')
@@ -573,6 +600,8 @@ def agendar_cita(request, solicitud_id):
         return citas_medicas.agendar(request, solicitud)
     if solicitud.tramite.es_servicio_social:
         return servicio_social.agendar(request, solicitud)
+    if solicitud.tramite.es_alta_proveedor:
+        return proveedores.agendar(request, solicitud)
 
     # Aquí traemos los horarios que la dependencia configuró
     horarios_disponibles = solicitud.tramite.direccion.horarios.all()
@@ -621,3 +650,13 @@ def ticket_servicio_social(request, solicitud_id):
     return render(request, 'ventanilla/cita_medica_ticket.html', {
         'cita': cita, 'requisitos_cita': servicio_social.REQUISITOS_CITA,
     })
+
+
+@login_required(login_url='iniciar_sesion')
+@never_cache
+def ticket_proveedor(request, solicitud_id):
+    cita = get_object_or_404(
+        Cita.objects.select_related('tramite__direccion', 'solicitud', 'ciudadano'),
+        solicitud_id=solicitud_id, solicitud__ciudadano=request.user, tramite__es_alta_proveedor=True,
+    )
+    return render(request, 'ventanilla/cita_medica_ticket.html', {'cita': cita})

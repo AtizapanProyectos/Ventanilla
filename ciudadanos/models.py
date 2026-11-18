@@ -37,6 +37,7 @@ class CiudadanoManager(BaseUserManager):
         return self.create_user(curp, email, password, **extra_fields)
 
 class Ciudadano(AbstractBaseUser, PermissionsMixin):
+    TIPOS_PERSONA = [('fisica', 'Persona Física'), ('moral', 'Persona Moral (Persona Jurídica Colectiva)')]
     # --- LA CURP ES LA LLAVE PRIMARIA (PK) ---
     curp = models.CharField(max_length=18, primary_key=True, unique=True)
     
@@ -45,6 +46,10 @@ class Ciudadano(AbstractBaseUser, PermissionsMixin):
     nombre = models.CharField(max_length=150)
     apellidos = models.CharField(max_length=150)
     cedula_profesional = models.CharField('cédula profesional', max_length=30, blank=True)
+    tipo_persona = models.CharField(max_length=6, choices=TIPOS_PERSONA, blank=True)
+    rfc = models.CharField('RFC del proveedor', max_length=13, blank=True)
+    razon_social = models.CharField('razón social', max_length=250, blank=True)
+    tiene_representante = models.BooleanField('actúa mediante representante legal', default=False)
     
     # --- DATOS EXTRAÍDOS DEL PDF ---
     fecha_nacimiento = models.CharField(max_length=20, blank=True, null=True)
@@ -110,6 +115,19 @@ class Tramite(models.Model):
         help_text='Usa la ficha clínica y los turnos médicos en lugar de los requisitos generales.',
     )
     es_servicio_social = models.BooleanField('Servicio social estudiantil', default=False)
+    es_alta_proveedor = models.BooleanField('Alta de proveedor', default=False)
+    es_cita_dental = models.BooleanField(
+        'Cita dental', default=False,
+        help_text='Usa el formato de odontología. Activa también la opción Cita médica para la agenda clínica.',
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(es_cita_dental=False) | models.Q(es_cita_medica=True),
+                name='cita_dental_usa_agenda_clinica',
+            ),
+        ]
 
     def __str__(self):
         return self.nombre
@@ -118,6 +136,10 @@ class Tramite(models.Model):
 class Requisito(models.Model):
     tramite = models.ForeignKey(Tramite, on_delete=models.CASCADE, related_name='requisitos')
     descripcion = models.CharField(max_length=255)
+    tipo_documento = models.CharField(max_length=40, blank=True, help_text='Código para reutilizar el documento.')
+    aplica_persona = models.CharField(max_length=6, choices=Ciudadano.TIPOS_PERSONA, blank=True)
+    requiere_representante = models.BooleanField(default=False)
+    es_fotografia = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.tramite.nombre} - {self.descripcion}"
@@ -146,9 +168,13 @@ class Solicitud(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='Pendiente')
     nivel_estudios = models.CharField(max_length=12, choices=NIVELES_SERVICIO_SOCIAL, blank=True)
     porcentaje_creditos = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    datos_proveedor = models.JSONField(default=dict, blank=True, editable=False)
 
     class Meta:
-        permissions = [('validar_servicio_social', 'Puede validar solicitudes de Servicio Social')]
+        permissions = [
+            ('validar_servicio_social', 'Puede validar solicitudes de Servicio Social'),
+            ('validar_proveedores', 'Puede validar alta de proveedores'),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.folio:
@@ -171,10 +197,33 @@ class ArchivoRequisito(models.Model):
     archivo = models.FileField(upload_to='tramites_archivos/', blank=True)
     contenido_pdf = models.BinaryField(null=True, blank=True)
     nombre_pdf = models.CharField(max_length=255, blank=True, editable=False)
+    origen = models.ForeignKey(
+        'self', on_delete=models.RESTRICT, null=True, blank=True, related_name='vinculos',
+        help_text='Documento reutilizado. Sus archivos y validación anteriores se conservan.',
+    )
+    tipo_documento = models.CharField(max_length=40, blank=True)
+    titular_documento = models.CharField(
+        max_length=30, blank=True, help_text='CURP:clave o RFC:clave del titular, para reutilización.',
+    )
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
     estado_validacion = models.CharField(max_length=20, choices=ESTADO_DOC_CHOICES, default='Pendiente')
     observaciones = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.tipo_documento and self.requisito.tipo_documento in (
+            'acta_nacimiento', 'identificacion_oficial',
+        ):
+            self.tipo_documento = self.requisito.tipo_documento
+            self.titular_documento = f'CURP:{self.solicitud.ciudadano_id}'
+        if self.pk and self.vinculos.exists():
+            previo = type(self).objects.get(pk=self.pk)
+            if (previo.archivo != self.archivo or previo.contenido_pdf != self.contenido_pdf
+                    or previo.nombre_pdf != self.nombre_pdf or previo.origen_id != self.origen_id
+                    or previo.tipo_documento != self.tipo_documento
+                    or previo.titular_documento != self.titular_documento):
+                raise ValidationError('El archivo vinculado conserva su contenido e identidad originales.')
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Archivo para {self.requisito.descripcion} - Solicitud {self.solicitud.folio}"
@@ -323,6 +372,7 @@ class ConsultaClinica(models.Model):
     )
 
     cita = models.OneToOneField(Cita, on_delete=models.CASCADE, related_name='consulta_clinica')
+    datos_odontologicos = models.JSONField(default=dict, blank=True, editable=False)
     elaborada = models.DateTimeField(auto_now_add=True)
     padecimiento_actual = models.TextField(blank=True)
     interrogatorio = models.TextField('interrogatorio por aparatos y sistemas', blank=True)

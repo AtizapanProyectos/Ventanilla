@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<script defer src="{% static 'js/citas.js' %}"></script>
+<script defer src="{% static 'js/proveedores.js' %}"></script>
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'mis_tramites' %}">← Mis trámites</a>
+  <header class="dif-hero"><p class="dif-kicker">Administración</p><h1>Alta de Proveedor</h1>
+    {% if solicitud %}<p>{{ solicitud.folio }} · {{ solicitud.get_estado_display }}</p>{% endif %}
+  </header>
+  <section class="dif-card">
+    {% if not solicitud %}
+      <form method="post" enctype="multipart/form-data" data-busy-form>
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="{% if documentos %}enviar{% else %}preparar{% endif %}">
+        <h2>Datos del proveedor</h2>
+        <p>El acceso se realiza con la CURP del propietario o representante. Para persona moral, registra el RFC y la razón social de la empresa.</p>
+        <div class="dif-fields">
+          {% for campo in perfil %}
+          <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>
+          {% endfor %}
+        </div>
+        {% if not documentos %}<div class="dif-actions"><button class="btn-solid" data-submit>Ver requisitos</button></div>{% endif %}
+    {% else %}
+      <h2>{{ datos.nombre_proveedor }}</h2>
+      <p>{{ datos.rfc }} · {% if datos.tipo_persona == 'moral' %}Persona Moral{% else %}Persona Física{% endif %}</p>
+      {% if editable %}<form method="post" enctype="multipart/form-data" data-busy-form>{% csrf_token %}<input type="hidden" name="accion" value="enviar">{% endif %}
+    {% endif %}
+    {% if documentos %}
+      <h2>Documentación</h2>
+      <p>Adjunta documentos en PDF de hasta 5 MB. Para las dos fotografías puedes adjuntar PDF, JPG o PNG.</p>
+      <p>Los documentos reutilizados serán revisados por Administración para esta solicitud.</p>
+      {{ documentos.non_field_errors }}
+      <div class="dif-fields">
+      {% for item in documentos.documentos %}
+        <div class="dif-field{% if item.campo.errors %} dif-field-error{% endif %}">
+          <strong>{{ item.requisito.descripcion }}</strong>
+          {% if item.previo %}
+            <p>Documento reutilizado · {{ item.previo.solicitud.tramite.nombre }} · {{ item.previo.solicitud.folio }}</p>
+            <a href="{% url 'documento_proveedor' item.previo.pk %}" target="_blank" rel="noopener">Ver documento previamente aprobado</a>
+            <p>Puedes adjuntar uno nuevo para reemplazarlo en esta solicitud.</p>
+          {% endif %}
+          {% if item.existente %}
+            {% if item.existente.origen_id %}<p>Documento reutilizado · {{ item.existente.origen.solicitud.folio }}</p>{% endif %}
+            <p>{{ item.existente.get_estado_validacion_display }}</p>
+            {% if item.existente.observaciones %}<p role="status">{{ item.existente.observaciones }}</p>{% endif %}
+            <a href="{% url 'documento_proveedor' item.existente.pk %}" target="_blank" rel="noopener">Ver documento</a>
+          {% endif %}
+          {% if editable and item.campo %}{{ item.campo }}{{ item.campo.errors }}{% endif %}
+        </div>
+      {% endfor %}
+      </div>
+      {% if editable %}<div class="dif-actions"><button class="btn-solid" data-submit>Enviar a revisión</button></div>{% endif %}
+    {% endif %}
+    {% if not solicitud or editable %}</form>{% endif %}
+  </section>
+</main>
+{% endblock %}

@@ -164,3 +164,5 @@
     .dif-ticket-page { max-width: 120mm; margin: 0 auto; padding: 0; }
     .dif-ticket { break-inside: avoid; box-shadow: none; print-color-adjust: exact; }
 }
+
+.dif-field input[type="checkbox"] { width: auto; }

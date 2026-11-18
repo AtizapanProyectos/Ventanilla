@@ -166,7 +166,8 @@ def agendar(request, solicitud):
             error = 'Selecciona un turno de la lista.'
         else:
             if _reservar(solicitud, *turno):
-                messages.success(request, 'Tu cita médica quedó programada.')
+                messages.success(request, 'Tu cita dental quedó programada.' if solicitud.tramite.es_cita_dental
+                                 else 'Tu cita médica quedó programada.')
                 return redirect('ticket_cita_medica', solicitud.pk)
             error = 'Ese turno ya no está disponible. Selecciona otro horario.'
 

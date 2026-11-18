@@ -1,4 +1,4 @@
-<p class="dif-kicker">Cita médica · {{ cita.folio_cita }}</p>
+<p class="dif-kicker">{{ cita.tramite.nombre }} · {{ cita.folio_cita }}</p>
 <h2>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h2>
 <dl>
   <dt>CURP</dt><dd>{{ cita.ciudadano.curp }}</dd>
@@ -14,7 +14,7 @@
 {% if documento %}
   <section class="dif-cierre" data-finalizado="{{ cita.pk }}" aria-labelledby="titulo-cierre">
     <div class="dif-cierre-icono" aria-hidden="true">✓</div>
-    <h3 id="titulo-cierre">Historia clínica generada</h3>
+    <h3 id="titulo-cierre">{% if cita.tramite.es_cita_dental %}Historia odontológica generada{% else %}Historia clínica generada{% endif %}</h3>
     <p>La cita quedó atendida y el PDF está disponible en el expediente.</p>
     <p class="dif-cierre-folio">{{ cita.folio_cita }}</p>
     {% if puede_descargar %}
@@ -23,8 +23,12 @@
   </section>
 {% elif puede_capturar %}
   <section>
-    <h3>Captura de la consulta</h3>
-    <p>Al finalizar se guardará la atención y se generará el PDF para el expediente y el paciente.</p>
+    <h3>{% if cita.tramite.es_cita_dental %}Historia clínica de odontología{% else %}Captura de la consulta{% endif %}</h3>
+    {% if cita.tramite.es_cita_dental %}
+      <p>Completa la identificación y los antecedentes hasta hipertensión arterial. La exploración, el odontograma y las firmas se completan en el formato impreso.</p>
+    {% else %}
+      <p>Al finalizar se guardará la atención y se generará el PDF para el expediente y el paciente.</p>
+    {% endif %}
     <form method="post" action="{% url 'panel_cita_medica' cita.pk %}" data-clinical-form data-finalizar-consulta>
       {% csrf_token %}
       {{ formulario.non_field_errors }}

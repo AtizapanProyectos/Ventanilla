@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from ciudadanos import panel_clinico, servicio_social, views
+from ciudadanos import panel_clinico, proveedores, servicio_social, views
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -42,6 +42,8 @@ urlpatterns = [
     path('cita/<int:solicitud_id>/ticket/', views.ticket_cita_medica, name='ticket_cita_medica'),
     path('servicio-social/cita/<int:solicitud_id>/ticket/', views.ticket_servicio_social, name='ticket_servicio_social'),
     path('servicio-social/documento/<int:pk>/', servicio_social.descargar, name='descargar_documento_servicio_social'),
+    path('proveedores/documento/<int:pk>/', proveedores.descargar, name='documento_proveedor'),
+    path('proveedores/cita/<int:solicitud_id>/ticket/', views.ticket_proveedor, name='ticket_proveedor'),
 ]
 
 if settings.DEBUG:

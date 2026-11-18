@@ -11,6 +11,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 
 from .historia_pdf import generar_historia
+from .odontologia import ConsultaDentalForm, generar_historia_dental
 from .models import Cita, ConsultaClinica, DocumentoClinico, ExpedienteClinico, validar_pdf_clinico
 
 
@@ -135,14 +136,18 @@ def cita_detalle(request, pk):
             consulta_cita = consulta_cita.select_for_update()
             expedientes = expedientes.select_for_update()
         cita = get_object_or_404(consulta_cita)
+        dental = cita.tramite.es_cita_dental
         expediente = get_object_or_404(expedientes, ciudadano_id=cita.ciudadano_id)
         consulta = getattr(cita, 'consulta_clinica', None)
         documento = DocumentoClinico.objects.filter(consulta=consulta).defer('contenido').first() if consulta else None
         disponible = cita.estado in ('Programada', 'Atendida') and not documento
         puede_capturar = disponible and _puede_capturar(request.user, consulta)
         datos = request.POST if request.method == 'POST' else None
-        formulario = ConsultaForm(datos, instance=consulta, expediente=expediente)
-        if consulta is None:
+        if dental:
+            formulario = ConsultaDentalForm(datos, expediente=expediente, cita=cita, consulta=consulta)
+        else:
+            formulario = ConsultaForm(datos, instance=consulta, expediente=expediente)
+        if consulta is None and not dental:
             medico = f'{request.user.nombre} {request.user.apellidos}'.strip()
             for campo, valor in (('medico', medico), ('cedula_profesional', request.user.cedula_profesional)):
                 if valor:
@@ -152,29 +157,43 @@ def cita_detalle(request, pk):
             if not puede_capturar:
                 raise PermissionDenied
             if formulario.is_valid():
-                consulta = formulario.save(commit=False)
-                consulta.cita = cita
-                consulta.save()
-                antecedentes = [
-                    campo for campo in ExpedienteClinico.CAMPOS_ANTECEDENTES if campo in request.POST
-                ]
-                for campo in antecedentes:
-                    setattr(expediente, campo, formulario.cleaned_data[campo])
-                if antecedentes:
-                    expediente.save(update_fields=antecedentes)
+                if dental:
+                    consulta = consulta or ConsultaClinica(cita=cita)
+                    respuestas = formulario.cleaned_data.copy()
+                    respuestas['fecha_primera_atencion'] = respuestas['fecha_primera_atencion'].isoformat()
+                    consulta.datos_odontologicos = respuestas
+                    consulta.medico = f'{request.user.nombre} {request.user.apellidos}'.strip()[:200]
+                    consulta.cedula_profesional = request.user.cedula_profesional
+                    consulta.save()
+                    nombre = 'Historia-odontologica'
+                    contenido = generar_historia_dental(expediente, respuestas)
+                else:
+                    consulta = formulario.save(commit=False)
+                    consulta.cita = cita
+                    consulta.save()
+                    antecedentes = [
+                        campo for campo in ExpedienteClinico.CAMPOS_ANTECEDENTES if campo in request.POST
+                    ]
+                    for campo in antecedentes:
+                        setattr(expediente, campo, formulario.cleaned_data[campo])
+                    if antecedentes:
+                        expediente.save(update_fields=antecedentes)
+                    nombre = 'Historia-clinica'
+                    contenido = generar_historia(expediente, consulta)
                 documento = DocumentoClinico.objects.create(
                     expediente=expediente, consulta=consulta, generado_por=request.user,
-                    nombre=f'Historia-clinica-{cita.folio_cita}.pdf',
-                    contenido=generar_historia(expediente, consulta),
+                    nombre=f'{nombre}-{cita.folio_cita}.pdf', contenido=contenido,
                 )
                 cita.estado = 'Atendida'
                 cita.funcionario = request.user
                 cita.save(update_fields=['estado', 'funcionario'])
                 puede_capturar = False
-    campos = list(formulario) if puede_capturar else []
+    campos = []
+    if puede_capturar:
+        campos = formulario.campos_identificacion if dental else list(formulario)[:8]
     return render(request, 'ventanilla/panel_cita_medica.html', {
         'cita': cita, 'expediente': expediente, 'formulario': formulario,
-        'campos_principales': campos[:8],
+        'campos_principales': campos,
         'puede_capturar': puede_capturar, 'documento': documento,
         'puede_descargar': request.user.has_perm('ciudadanos.view_documentoclinico'),
     })

@@ -4,6 +4,7 @@
 {% block content %}
 <!-- Agregamos el script oficial de Google reCAPTCHA -->
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<script src="{% static 'js/proveedores.js' %}" defer></script>
 
 <!-- AQUÍ INICIA EL FONDO ANIMADO: Reemplazamos la <section> vieja por este div -->
 <div class="wave-auth-bg">
@@ -14,6 +15,23 @@
     
     <form id="form-registro" class="auth-form" method="POST" action="{% url 'registro' %}" enctype="multipart/form-data">
       {% csrf_token %}
+      <div class="input-group">
+        <label for="tipo-persona">Tipo de persona</label>
+        <select name="tipo_persona" id="tipo-persona" required>
+          <option value="fisica"{% if perfil_proveedor.tipo_persona.value == 'fisica' %} selected{% endif %}>Persona Física</option>
+          <option value="moral"{% if perfil_proveedor.tipo_persona.value == 'moral' %} selected{% endif %}>Persona Moral (Persona Jurídica Colectiva)</option>
+        </select>
+      </div>
+      <div id="datos-proveedor-registro">
+        <div class="input-group"><label for="rfc-proveedor">RFC del proveedor (opcional para persona física)</label>
+          <input id="rfc-proveedor" name="rfc" maxlength="13" value="{{ perfil_proveedor.rfc.value|default:'' }}">{{ perfil_proveedor.rfc.errors }}
+        </div>
+        <div class="input-group"><label for="razon-social">Razón social (persona moral)</label>
+          <input id="razon-social" name="razon_social" maxlength="250" value="{{ perfil_proveedor.razon_social.value|default:'' }}">{{ perfil_proveedor.razon_social.errors }}
+        </div>
+        <label><input type="checkbox" name="tiene_representante"{% if perfil_proveedor.tiene_representante.value %} checked{% endif %}> Actúo mediante representante legal</label>
+        <p>Para persona moral, utiliza la CURP del representante legal para crear la cuenta.</p>
+      </div>
       
       <!-- ZONA DE CARGA OCR (Restringida a PDF oficial) -->
       <div class="ocr-upload-zone" id="drop-zone">

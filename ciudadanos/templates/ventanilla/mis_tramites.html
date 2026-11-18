@@ -187,11 +187,15 @@
                                     {% endif %}
                                 {% elif sol.tramite.es_servicio_social %}
                                     <a class="btn-action" href="{% url 'ticket_servicio_social' sol.id %}">Ver ticket e indicaciones</a>
+                                {% elif sol.tramite.es_alta_proveedor %}
+                                    <a class="btn-action" href="{% url 'ticket_proveedor' sol.id %}">Ver ticket de Administración</a>
                                 {% endif %}
                             {% elif sol.tramite.es_cita_medica %}
-                                <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar cita médica</a>
+                                <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">{% if sol.tramite.es_cita_dental %}Agendar cita dental{% else %}Agendar cita médica{% endif %}</a>
                             {% elif sol.tramite.es_servicio_social and not sol.requisitos_validados %}
                                 <a href="{% url 'corregir_solicitud' sol.id %}" class="btn-action">Revisar requisitos de Servicio Social</a>
+                            {% elif sol.tramite.es_alta_proveedor and not sol.requisitos_validados %}
+                                <a href="{% url 'corregir_solicitud' sol.id %}" class="btn-action">Revisar requisitos del proveedor</a>
                             {% else %}
                                 <p style="margin: 0 0 10px 0; font-size: 12.5px; color: var(--text2);">Trámite aprobado. Seleccione fecha y hora para acudir a ventanilla.</p>
                                 <a href="{% url 'agendar_cita' sol.id %}" class="btn-action" style="background: #4caf50; color: white;">Agendar Cita Presencial</a>

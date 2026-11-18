@@ -33,6 +33,7 @@ class CiudadanoAdmin(UserAdmin):
             'fields': ('cp', 'colonia', 'calle', 'numero', 'mz_lt')
         }),
         ('Datos profesionales', {'fields': ('cedula_profesional',)}),
+        ('Datos del proveedor', {'fields': ('tipo_persona', 'rfc', 'razon_social', 'tiene_representante')}),
         ('Permisos', {
             'description': 'Para entrar a Django Admin, la cuenta debe estar activa y marcada como staff.',
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
@@ -75,8 +76,8 @@ class TurnoMedicoInline(admin.TabularInline):
 
 @admin.register(Tramite)
 class TramiteAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'direccion', 'tiempo', 'costo', 'modalidad', 'es_cita_medica', 'es_servicio_social')
-    list_filter = ('direccion', 'modalidad', 'es_cita_medica', 'es_servicio_social')
+    list_display = ('nombre', 'direccion', 'tiempo', 'costo', 'modalidad', 'es_cita_medica', 'es_cita_dental', 'es_servicio_social')
+    list_filter = ('direccion', 'modalidad', 'es_cita_medica', 'es_cita_dental', 'es_servicio_social', 'es_alta_proveedor')
     search_fields = ('nombre',)
     inlines = [RequisitoInline, TurnoMedicoInline]
 
@@ -88,8 +89,30 @@ class RequisitoAdmin(admin.ModelAdmin):
     search_fields = ('descripcion',)
 
 
+class ArchivoRequisitoForm(forms.ModelForm):
+    class Meta:
+        model = ArchivoRequisito
+        fields = '__all__'
+
+    def clean(self):
+        datos = super().clean()
+        if self.instance.pk and (self.instance.origen_id or self.instance.vinculos.exists()):
+            protegidos = ('archivo', 'origen', 'tipo_documento', 'titular_documento', 'solicitud', 'requisito')
+            if any(campo in self.changed_data for campo in protegidos):
+                raise forms.ValidationError('El documento vinculado conserva su archivo e identidad originales.')
+        origen = datos.get('origen')
+        solicitud = datos.get('solicitud')
+        if origen and (origen.origen_id or origen.pk == self.instance.pk or not solicitud
+                       or origen.solicitud.ciudadano_id != solicitud.ciudadano_id
+                       or origen.tipo_documento != datos.get('tipo_documento')
+                       or origen.titular_documento != datos.get('titular_documento')):
+            raise forms.ValidationError('El vínculo debe corresponder a un documento del mismo titular y tipo.')
+        return datos
+
+
 class ArchivoRequisitoInline(admin.TabularInline):
     model = ArchivoRequisito
+    form = ArchivoRequisitoForm
     extra = 0
 
     def get_queryset(self, request):
@@ -107,6 +130,7 @@ class SolicitudAdmin(admin.ModelAdmin):
 
 @admin.register(ArchivoRequisito)
 class ArchivoRequisitoAdmin(admin.ModelAdmin):
+    form = ArchivoRequisitoForm
     list_display = ('solicitud', 'requisito', 'estado_validacion', 'fecha_subida')
     list_filter = ('estado_validacion',)
     search_fields = ('solicitud__folio',)
@@ -121,6 +145,8 @@ class CitaAdminForm(forms.ModelForm):
         tramite = datos.get('tramite')
         if tramite and tramite.es_cita_medica:
             self.add_error('tramite', 'La cita médica se crea desde la agenda del ciudadano.')
+        if tramite and tramite.es_alta_proveedor:
+            self.add_error('tramite', 'La cita de proveedor se crea desde la agenda del solicitante.')
         if self.instance.solicitud_id and self.instance.estado in ('Cancelada', 'Reprogramada'):
             if datos.get('estado') == 'Programada':
                 self.add_error('estado', 'La cita debe reservarse de nuevo desde la agenda.')
@@ -154,7 +180,7 @@ class CitaAdmin(admin.ModelAdmin):
         return campos
 
     def get_inlines(self, request, obj=None):
-        return [ConsultaClinicaInline] if obj and obj.solicitud_id else []
+        return [ConsultaClinicaInline] if obj and obj.solicitud_id and not obj.tramite.es_cita_dental else []
 
     @admin.display(description='Expediente clínico')
     def expediente(self, cita):
