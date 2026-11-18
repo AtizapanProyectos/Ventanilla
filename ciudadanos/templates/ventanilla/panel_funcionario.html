@@ -150,7 +150,7 @@
                             <span class="m">Hoy</span>
                         </div>
                         <div class="cita-body">
-                            <h4>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h4>
+                            <h4>{% if cita.solicitud.persona_social %}{{ cita.solicitud.persona_social.nombre }}{% else %}{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}{% endif %}</h4>
                             <p>{{ cita.tramite.nombre }}</p>
                             <p class="folio-mini">Folio {{ cita.folio_cita }}</p>
                         </div>
@@ -173,7 +173,7 @@
                             <span class="h">{{ cita.hora|time:"H:i" }}</span>
                         </div>
                         <div class="cita-body">
-                            <h4>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h4>
+                            <h4>{% if cita.solicitud.persona_social %}{{ cita.solicitud.persona_social.nombre }}{% else %}{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}{% endif %}</h4>
                             <p>{{ cita.tramite.nombre }}</p>
                         </div>
                     </div>
@@ -194,7 +194,7 @@
                             <span class="m">{{ cita.fecha|date:"M" }}</span>
                         </div>
                         <div class="cita-body">
-                            <h4>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</h4>
+                            <h4>{% if cita.solicitud.persona_social %}{{ cita.solicitud.persona_social.nombre }}{% else %}{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}{% endif %}</h4>
                             <p>{{ cita.tramite.nombre }}</p>
                         </div>
                     </div>
@@ -226,7 +226,7 @@
                     {% for sol in solicitudes %}
                     <tr>
                         <td><span class="folio-chip">{{ sol.folio }}</span></td>
-                        <td>{{ sol.ciudadano.nombre }} {{ sol.ciudadano.apellidos }}</td>
+                        <td>{% if sol.persona_social %}{{ sol.persona_social.nombre }}<br><small>Responsable: {{ sol.ciudadano.nombre }} {{ sol.ciudadano.apellidos }}</small>{% else %}{{ sol.ciudadano.nombre }} {{ sol.ciudadano.apellidos }}{% endif %}</td>
                         <td>{{ sol.tramite.nombre }}</td>
                         <td>{{ sol.fecha_creacion|date:"d M Y - H:i" }}</td>
                         <td>
@@ -241,7 +241,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if sol.tramite.es_cita_medica %}
+                            {% if sol.tramite.servicio_procuraduria %}
+                                {% if sol.cita_agendada and sol.tramite.servicio_procuraduria == 'socioeconomico' and perms.ciudadanos.atender_socioeconomico or sol.cita_agendada and sol.tramite.servicio_procuraduria == 'psicologia' and perms.ciudadanos.atender_psicologia %}
+                                  <a href="{% url 'social_atender' sol.cita_agendada.pk %}" class="btn-revisar">Atender cita</a>
+                                {% elif sol.tramite.servicio_procuraduria == 'socioeconomico' and perms.ciudadanos.revisar_procuraduria %}
+                                  <a href="{% url 'social_revisar' sol.pk %}" class="btn-revisar">Validar documentos</a>
+                                {% endif %}
+                            {% elif sol.tramite.es_cita_medica %}
                                 {% if sol.cita_agendada %}
                                     <a href="{% url 'panel_cita_medica' sol.cita_agendada.pk %}" class="btn-revisar" data-clinical-modal>Ver cita</a>
                                 {% endif %}

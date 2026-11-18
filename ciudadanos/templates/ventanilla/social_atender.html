@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<script defer src="{% static 'js/procuraduria.js' %}"></script>
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'panel_funcionario' %}">← Panel de funcionarios</a>
+  <header class="dif-hero"><h1>{{ cita.tramite.nombre }}</h1><p>{{ cita.folio_cita }} · {{ identidad.nombre }}</p></header>
+  <section class="dif-card">
+    <h2>Datos recuperados</h2>
+    <dl class="social-datos">
+      <dt>CURP</dt><dd>{{ identidad.curp|default:'Sin CURP registrada' }}</dd>
+      <dt>Fecha de nacimiento</dt><dd>{{ identidad.fecha_nacimiento }}</dd>
+      <dt>Contacto</dt><dd>{{ identidad.telefono }} · {{ identidad.correo }}</dd>
+      <dt>Domicilio</dt><dd>{{ identidad.calle }} {{ identidad.numero }} {{ identidad.numero_interior }}, {{ identidad.colonia }}, {{ identidad.municipio }}, {{ identidad.estado_domicilio }}, {{ identidad.cp }}</dd>
+    </dl>
+    {% if entrevista.finalizada %}
+      <div class="dif-cierre"><h2>Atención finalizada</h2>
+        <p><a target="_blank" href="{% url 'social_formato' entrevista.pk 'pdf' %}">Vista previa e impresión</a></p>
+        <p><a href="{% url 'social_formato' entrevista.pk 'pdf' %}?descargar=1">Descargar PDF</a></p>
+        <p><a href="{% url 'social_formato' entrevista.pk 'docx' %}">Descargar Word</a></p>
+      </div>
+    {% else %}
+      {% for mensaje in messages %}<p role="status">{{ mensaje }}</p>{% endfor %}
+      {% if error %}<p class="dif-alert" role="alert">{{ error }}</p>{% endif %}
+      <form method="post" data-social-atencion>
+        {% csrf_token %}
+        {% for titulo, campos in formulario.grupos %}
+          <details open class="social-documento"><summary>{{ titulo }}</summary>
+            <div class="dif-fields">{% for campo in campos %}
+              <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>
+            {% endfor %}</div>
+          </details>
+        {% endfor %}
+        {% if familia %}
+          <h2>Estructura familiar</h2>
+          {{ familia.management_form }}{{ familia.non_form_errors }}
+          <div data-familia>
+            {% for fila in familia %}
+              <fieldset class="social-documento">
+                <legend>Integrante {{ forloop.counter }}</legend>
+                <div class="dif-fields">{% for campo in fila %}<div class="dif-field">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>{% endfor %}</div>
+              </fieldset>
+            {% endfor %}
+          </div>
+          <template data-familiar-vacio><fieldset class="social-documento"><legend>Integrante de la familia</legend>
+            <div class="dif-fields">{% for campo in familia.empty_form %}<div class="dif-field">{{ campo.label_tag }}{{ campo }}</div>{% endfor %}</div>
+          </fieldset></template>
+          <button class="dif-secondary" type="button" data-agregar-familiar>Agregar integrante</button>
+        {% endif %}
+        <div class="dif-actions">
+          <button class="dif-secondary" name="accion" value="guardar" formnovalidate>Guardar borrador</button>
+          <button class="btn-solid" type="button" data-pedir-finalizar>Finalizar entrevista</button>
+        </div>
+        <section class="dif-confirmacion" data-confirmar-finalizar hidden>
+          <h3 tabindex="-1">¿Generar los documentos finales?</h3>
+          <p>Se guardarán las versiones Word y PDF y se marcará la cita como atendida.</p>
+          <button class="btn-solid" name="accion" value="finalizar">Generar y finalizar</button>
+          <button type="button" class="dif-secondary" data-cancelar-finalizar>Seguir editando</button>
+        </section>
+      </form>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

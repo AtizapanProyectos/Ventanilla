@@ -23,15 +23,15 @@ from django.db.models import Case, When, Value, IntegerField, Q
 
 Ciudadano = get_user_model()
 from .models import *
-from . import citas_medicas, panel_clinico, proveedores, servicio_social
+from . import citas_medicas, panel_clinico, proveedores, procuraduria, servicio_social
 
 SERVICIOS_DIF = (
     ('Área Médica', 'Citas médicas y dentales.', ('Cita Médica', 'Cita Dental')),
     ('Servicio Social', 'Servicio social.', ('Servicio Social',)),
     ('Administración', 'Cita para alta y renovación de cédula de proveedores.',
      ('Alta de Proveedor', 'Cita para alta y renovación de cédula de proveedores', 'Inscripción al Padrón de Proveedores')),
-    ('Procuraduría', 'Estudio socioeconómico / Atención psicológica.',
-     ('Estudio socioeconómico', 'Atención psicológica')),
+    ('Procuraduría Social', 'Estudio socioeconómico / Consulta psicológica.',
+     ('Estudio Socioeconómico', 'Consulta Psicológica')),
     ('Centros de Desarrollo Comunitario', 'Talleres, capacitaciones y actividades.',
      ('Talleres, capacitaciones y actividades',)),
     ('Procuraduría del Adulto Mayor', 'Citas.', ('Cita para la Procuraduría del Adulto Mayor',)),
@@ -338,6 +338,8 @@ def perfil_ciudadano(request):
 @login_required(login_url='iniciar_sesion')
 def iniciar_tramite(request, tramite_id):
     tramite = get_object_or_404(Tramite, id=tramite_id)
+    if tramite.servicio_procuraduria:
+        return procuraduria.iniciar(request, tramite)
     if tramite.es_cita_medica:
         return citas_medicas.iniciar(request, tramite)
     if tramite.es_servicio_social:
@@ -415,7 +417,7 @@ def mis_tramites(request):
     proxima_cita = citas_usuario.first()
 
     for sol in mis_solicitudes:
-        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social or sol.tramite.es_alta_proveedor:
+        if sol.tramite.servicio_procuraduria or sol.tramite.es_cita_medica or sol.tramite.es_servicio_social or sol.tramite.es_alta_proveedor:
             cita = getattr(sol, 'cita', None)
         else:
             cita = citas_usuario.filter(tramite=sol.tramite).first()
@@ -442,7 +444,10 @@ def es_funcionario(user):
 
 def puede_abrir_panel(user):
     return (es_funcionario(user) or panel_clinico.personal_clinico(user)
-            or servicio_social.puede_validar(user) or proveedores.puede_validar(user))
+            or servicio_social.puede_validar(user) or proveedores.puede_validar(user)
+            or procuraduria.revisar_permitido(user)
+            or procuraduria.atender_permitido(user, 'socioeconomico')
+            or procuraduria.atender_permitido(user, 'psicologia'))
 
 # 2. Tu nueva vista de Login para Funcionarios
 def login_funcionario(request):
@@ -479,7 +484,7 @@ def login_funcionario(request):
 def panel_funcionario(request):
     # ORDENADO POR RETRASO: Las solicitudes más antiguas (fecha de creación ascendente) aparecen primero
     todas_las_solicitudes = Solicitud.objects.select_related(
-        'tramite', 'cita', 'ciudadano__expediente_clinico',
+        'tramite', 'cita', 'persona_social', 'ciudadano__expediente_clinico',
     ).order_by('fecha_creacion')
     
     todas_las_citas = Cita.objects.filter(estado='Programada').order_by('fecha', 'hora')
@@ -491,6 +496,7 @@ def panel_funcionario(request):
             filtro |= Q(tramite__es_servicio_social=True)
         if proveedores.puede_validar(request.user):
             filtro |= Q(tramite__es_alta_proveedor=True)
+        filtro |= procuraduria.filtro_personal(request.user)
         todas_las_solicitudes = todas_las_solicitudes.filter(filtro)
         todas_las_citas = todas_las_citas.filter(filtro)
     hoy = timezone.localdate()
@@ -500,7 +506,7 @@ def panel_funcionario(request):
     citas_pasadas = todas_las_citas.filter(fecha__lt=hoy)
 
     for sol in todas_las_solicitudes:
-        if sol.tramite.es_cita_medica or sol.tramite.es_servicio_social or sol.tramite.es_alta_proveedor:
+        if sol.tramite.servicio_procuraduria or sol.tramite.es_cita_medica or sol.tramite.es_servicio_social or sol.tramite.es_alta_proveedor:
             sol.cita_agendada = getattr(sol, 'cita', None)
             continue
         cita = Cita.objects.filter(ciudadano=sol.ciudadano, tramite=sol.tramite, estado='Programada').first()
@@ -518,6 +524,8 @@ def panel_funcionario(request):
 @user_passes_test(puede_abrir_panel, login_url='login_funcionario')
 def revisar_solicitud(request, solicitud_id):
     solicitud = get_object_or_404(Solicitud, id=solicitud_id)
+    if solicitud.tramite.servicio_procuraduria:
+        return procuraduria.revisar(request, solicitud_id)
     if solicitud.tramite.es_alta_proveedor:
         if not proveedores.puede_validar(request.user):
             raise PermissionDenied
@@ -557,6 +565,8 @@ def revisar_solicitud(request, solicitud_id):
 def corregir_solicitud(request, solicitud_id):
     # 👇 CAMBIO: antes filtraba por nombre_ciudadano=request.user.username
     solicitud = get_object_or_404(Solicitud, id=solicitud_id, ciudadano=request.user)
+    if solicitud.tramite.servicio_procuraduria:
+        return redirect('social_solicitud', solicitud_id)
     if solicitud.tramite.es_alta_proveedor:
         return proveedores.iniciar(request, solicitud.tramite, solicitud)
     if solicitud.tramite.es_servicio_social:
@@ -590,6 +600,8 @@ def corregir_solicitud(request, solicitud_id):
 @login_required(login_url='iniciar_sesion')
 def agendar_cita(request, solicitud_id):
     solicitud = get_object_or_404(Solicitud, id=solicitud_id, ciudadano=request.user)
+    if solicitud.tramite.servicio_procuraduria:
+        return redirect('social_agenda', solicitud_id)
     
     # Bloqueo de seguridad: Si alguien intenta entrar a la URL pero no está aprobado, lo rebotamos
     if solicitud.estado != 'Aprobado':

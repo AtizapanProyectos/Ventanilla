@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<main class="dif-shell dif-ticket-page">
+  <a class="dif-back" href="{% url 'mis_tramites' %}">← Mis trámites</a>
+  <article class="dif-ticket">
+    <header class="dif-ticket-header">
+      <div class="dif-ticket-logos"><img src="{% static 'assets/Ati.png' %}" alt="Atizapán"><img src="{% static 'assets/DIF.png' %}" alt="DIF"></div>
+      <h1>{{ cita.tramite.nombre }}</h1><p>{{ cita.folio_cita }}</p>
+    </header>
+    <div class="dif-ticket-horario"><div><span>Fecha</span>{{ cita.fecha|date:'l j F Y' }}</div><div><span>Hora</span>{{ cita.hora|time:'H:i' }}</div></div>
+    <dl class="dif-ticket-datos">
+      <div><dt>Persona atendida</dt><dd>{{ cita.solicitud.persona_social.nombre }}</dd></div>
+      <div><dt>Cuenta responsable</dt><dd>{{ cita.ciudadano.nombre }} {{ cita.ciudadano.apellidos }}</dd></div>
+      <div><dt>Sede</dt><dd>{{ cita.turno_social.sede.nombre }} · {{ cita.turno_social.sede.direccion }}</dd></div>
+      <div><dt>Estado</dt><dd>{{ cita.estado }}</dd></div>
+    </dl>
+    {% if cita.tramite.servicio_procuraduria == 'socioeconomico' %}<p class="dif-requisitos-cita">El pago y el registro en el libro de gobierno se realizan el día de la cita en Trabajo Social.</p>{% endif %}
+  </article>
+  <div class="dif-ticket-acciones"><button class="btn-solid" onclick="window.print()">Imprimir comprobante</button></div>
+  {% if cita.atencion_social.finalizada %}
+    <section class="dif-card"><h2>Atención finalizada</h2>
+      <p><a target="_blank" href="{% url 'social_formato' cita.atencion_social.pk 'pdf' %}">Vista previa e impresión</a></p>
+      <p><a href="{% url 'social_formato' cita.atencion_social.pk 'pdf' %}?descargar=1">Descargar PDF</a></p>
+      <p><a href="{% url 'social_formato' cita.atencion_social.pk 'docx' %}">Descargar Word</a></p>
+    </section>
+  {% endif %}
+</main>
+{% endblock %}

@@ -550,3 +550,191 @@ class ProveedoresTests(TestCase):
         self.assertEqual(usuario.rfc, 'DIF050220AB1')
         self.assertTrue(usuario.tiene_representante)
         self.assertEqual(self.client.session['_auth_user_id'], usuario.pk)
+
+@override_settings(STORAGES={
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+})
+class ProcuraduriaTests(TestCase):
+    def setUp(self):
+        from .models import SedeSocial, HorarioSocial
+        self.user = Ciudadano.objects.create_user(
+            'SOCIALQA', 'socialqa@example.com', nombre='Persona', apellidos='Prueba', is_active=True,
+            calle='Calle', numero='10', colonia='Centro', municipio='Atizapan', estado_domicilio='Mexico', cp='52900',
+            telefono_cel='5555555555', fecha_nacimiento='10/05/1990',
+        )
+        self.otro = Ciudadano.objects.create_user('OTROSOCIAL', 'otrosocial@example.com', is_active=True)
+        self.admin = Ciudadano.objects.create_superuser('SOCIALADMIN', 'socialadmin@example.com', nombre='Responsable')
+        self.estudio = Tramite.objects.get(servicio_procuraduria='socioeconomico')
+        self.psico = Tramite.objects.get(servicio_procuraduria='psicologia')
+        self.sede = SedeSocial.objects.create(nombre='Sede de prueba', direccion='Direccion de prueba')
+        self.hoy = date(2026, 11, 18)
+        self.ahora = datetime(2026, 11, 18, 9, tzinfo=ZoneInfo('America/Mexico_City'))
+        for tramite in (self.estudio, self.psico):
+            HorarioSocial.objects.create(tramite=tramite, sede=self.sede, dia=2, inicio=time(12), fin=time(13))
+        for destino, retorno in (('django.utils.timezone.localdate', self.hoy), ('django.utils.timezone.localtime', self.ahora)):
+            mock = patch(destino, return_value=retorno)
+            mock.start()
+            self.addCleanup(mock.stop)
+        self.client.force_login(self.user)
+        self.datos = {
+            'persona': 'titular', 'nombre': 'Persona Prueba', 'curp': self.user.pk, 'fecha_nacimiento': '1990-05-10',
+            'parentesco': 'Titular', 'telefono': '5555555555', 'correo': self.user.email, 'calle': 'Calle', 'numero': '10',
+            'colonia': 'Centro', 'municipio': 'Atizapan', 'estado_domicilio': 'Mexico', 'cp': '52900',
+            'modalidad': 'general', 'referencia': 'Institucion y caso 1',
+        }
+
+    def iniciar(self, tramite, **datos):
+        self.client.post(reverse('iniciar_tramite', args=[tramite.pk]), {**self.datos, **datos})
+        return Solicitud.objects.filter(tramite=tramite).latest('pk')
+
+    def documentos_aprobados(self, solicitud):
+        from .procuraduria import tipos_requeridos
+        direccion = reverse('social_solicitud', args=[solicitud.pk])
+        datos = {'accion': 'enviar'}
+        for tipo in tipos_requeridos(solicitud):
+            datos[tipo] = SimpleUploadedFile(tipo + '.pdf', b'%PDF-1.4', 'application/pdf')
+        self.client.post(direccion, datos)
+        self.client.force_login(self.admin)
+        validaciones = {}
+        for enlace in solicitud.requisitos_sociales.all():
+            prefijo = f'doc{enlace.documento_id}-'
+            validaciones.update({
+                prefijo + 'estado': 'Aprobado', prefijo + 'fecha_documento': '2026-11-01',
+                prefijo + 'sin_vencimiento': True,
+            })
+        respuesta = self.client.post(reverse('social_revisar', args=[solicitud.pk]), validaciones)
+        self.assertRedirects(respuesta, reverse('panel_funcionario'))
+        self.client.force_login(self.user)
+        solicitud.refresh_from_db()
+
+    def reservar(self, solicitud):
+        respuesta = self.client.post(reverse('social_agenda', args=[solicitud.pk]), {
+            'sede': self.sede.pk, 'turno': '2026-11-18|12:00:00',
+        })
+        cita = Cita.objects.get(solicitud=solicitud)
+        self.assertRedirects(respuesta, reverse('social_ticket', args=[cita.pk]))
+        return cita
+
+    def test_estudio_documentos_agenda_borrador_y_error_de_generacion(self):
+        from .models import AtencionSocial
+        from .procuraduria import apta
+        solicitud = self.iniciar(self.estudio)
+        self.assertFalse(apta(solicitud))
+        self.documentos_aprobados(solicitud)
+        self.assertTrue(apta(solicitud))
+        cita = self.reservar(solicitud)
+        self.reservar(solicitud)
+        self.assertEqual(Cita.objects.filter(solicitud=solicitud).count(), 1)
+        self.client.force_login(self.admin)
+        atender = reverse('social_atender', args=[cita.pk])
+        datos = {
+            'accion': 'finalizar', 'diagnostico': 'Diagnostico social de prueba', 'conclusion': 'Conclusion de prueba',
+            'pago_realizado': True, 'importe': '100.00', 'fecha_pago': '2026-11-18', 'recibo': 'REC-1',
+            'libro_gobierno': 'LIB-1', 'familia-TOTAL_FORMS': '0', 'familia-INITIAL_FORMS': '0',
+        }
+        with patch('ciudadanos.social_documentos.generar', side_effect=RuntimeError('Prueba de fallo controlado')):
+            self.assertContains(self.client.post(atender, datos), 'El borrador está guardado')
+        atencion = AtencionSocial.objects.get(cita=cita)
+        self.assertIsNone(atencion.finalizada)
+        cita.refresh_from_db()
+        self.assertEqual(cita.estado, 'Programada')
+        with patch('ciudadanos.social_documentos.generar', return_value=(b'WORD', b'%PDF-1.4')) as generar:
+            self.assertRedirects(self.client.post(atender, datos), atender)
+            self.assertRedirects(self.client.post(atender, datos), atender)
+            self.assertEqual(generar.call_count, 1)
+        atencion.refresh_from_db()
+        self.assertEqual(atencion.version, 1)
+        self.client.force_login(self.user)
+        descarga = reverse('social_formato', args=[atencion.pk, 'docx'])
+        self.assertEqual(self.client.get(descarga).status_code, 200)
+        self.client.force_login(self.otro)
+        self.assertEqual(self.client.get(descarga).status_code, 404)
+
+    def test_psicologia_beneficiario_y_separacion_de_personas(self):
+        from .models import PersonaSocial
+        solicitud = self.iniciar(
+            self.psico, persona='nueva', nombre='Menor de prueba', curp='MENORQA', fecha_nacimiento='2015-05-10', parentesco='Hijo',
+        )
+        self.assertEqual(solicitud.estado, 'Aprobado')
+        self.assertFalse(solicitud.requisitos_sociales.exists())
+        self.assertEqual(solicitud.persona_social.nombre, 'Menor de prueba')
+        self.reservar(solicitud)
+        self.client.force_login(self.otro)
+        self.assertEqual(self.client.get(reverse('social_solicitud', args=[solicitud.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse('iniciar_tramite', args=[self.psico.pk]),
+                                        {'persona': solicitud.persona_social_id}).status_code, 404)
+        self.assertEqual(PersonaSocial.objects.count(), 1)
+
+    def test_modalidades_vigencia_y_reutilizacion(self):
+        from .models import DocumentoSocial
+        from .procuraduria import tipos_requeridos, tres_meses
+        solicitud = self.iniciar(self.estudio, modalidad='judicial')
+        self.assertIn('oficio_judicial', tipos_requeridos(solicitud))
+        self.assertNotIn('solicitud_institucion', tipos_requeridos(solicitud))
+        self.documentos_aprobados(solicitud)
+        cita = self.reservar(solicitud)
+        cita.estado = 'Atendida'
+        cita.save(update_fields=['estado'])
+        nueva = self.iniciar(self.estudio, modalidad='judicial')
+        self.assertEqual(nueva.requisitos_sociales.count(), 4)
+        self.assertEqual(DocumentoSocial.objects.count(), 4)
+        self.assertEqual(nueva.estado, 'Aprobado')
+        doc = nueva.requisitos_sociales.get(tipo='comprobante_domicilio').documento
+        doc.fecha_documento = date(2026, 7, 1)
+        doc.save()
+        self.assertRedirects(self.client.get(reverse('social_agenda', args=[nueva.pk])),
+                             reverse('social_solicitud', args=[nueva.pk]))
+        self.assertEqual(tres_meses(date(2026, 1, 31)), date(2026, 4, 30))
+
+    def test_cupo_y_permisos_especificos_del_personal(self):
+        from django.contrib.auth.models import Permission
+        from .models import TurnoSocial
+        primera = self.iniciar(self.psico)
+        self.reservar(primera)
+        segunda = self.iniciar(self.psico, persona='nueva', nombre='Beneficiario', curp='BENEFQA', parentesco='Hijo')
+        agenda = reverse('social_agenda', args=[segunda.pk])
+        self.assertContains(self.client.post(agenda, {
+            'sede': self.sede.pk, 'turno': '2026-11-18|12:00:00',
+        }), 'ya no tiene cupo')
+        self.assertFalse(Cita.objects.filter(solicitud=segunda).exists())
+        self.client.post(agenda, {'sede': self.sede.pk, 'turno': '2026-11-18|03:01:00'})
+        self.assertEqual(TurnoSocial.objects.count(), 1)
+        atender = reverse('social_atender', args=[primera.cita.pk])
+        self.assertEqual(self.client.get(atender).status_code, 403)
+        self.otro.is_staff = True
+        self.otro.save()
+        self.otro.user_permissions.add(Permission.objects.get(codename='atender_socioeconomico'))
+        self.client.force_login(self.otro)
+        self.assertEqual(self.client.get(atender).status_code, 403)
+        self.otro.user_permissions.add(Permission.objects.get(codename='atender_psicologia'))
+        self.assertContains(self.client.get(atender), 'Consulta Psicológica')
+        self.assertContains(self.client.get(reverse('panel_funcionario')), segunda.folio)
+
+    def test_beca_correccion_y_precarga_clinica(self):
+        from .models import ExpedienteClinico
+        from .procuraduria import tipos_requeridos
+        ExpedienteClinico.objects.create(
+            ciudadano=self.user, edad=36,
+            genero='Femenino', escolaridad='Licenciatura', estado_civil='Soltera', ocupacion='Estudiante',
+        )
+        solicitud = self.iniciar(self.estudio, modalidad='beca')
+        self.assertEqual(solicitud.datos_sociales['escolaridad'], 'Licenciatura')
+        self.assertIn('comprobante_estudios', tipos_requeridos(solicitud))
+        self.documentos_aprobados(solicitud)
+        enlace = solicitud.requisitos_sociales.get(tipo='comprobante_estudios')
+        self.client.force_login(self.admin)
+        validaciones = {}
+        for e in solicitud.requisitos_sociales.all():
+            prefijo = f'doc{e.documento_id}-'
+            validaciones.update({prefijo + 'estado': 'Aprobado', prefijo + 'sin_vencimiento': True,
+                                 prefijo + 'fecha_documento': '2026-11-01'})
+        validaciones.update({f'doc{enlace.documento_id}-estado': 'Requiere corrección',
+                             f'doc{enlace.documento_id}-observaciones': 'La boleta no es legible.'})
+        self.client.post(reverse('social_revisar', args=[solicitud.pk]), validaciones)
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, 'Requiere corrección')
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(reverse('social_solicitud', args=[solicitud.pk])), 'La boleta no es legible.')
+        self.assertRedirects(self.client.get(reverse('social_agenda', args=[solicitud.pk])),
+                             reverse('social_solicitud', args=[solicitud.pk]))

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'panel_funcionario' %}">← Panel de funcionarios</a>
+  <header class="dif-hero"><h1>Revisión documental</h1><p>{{ solicitud.folio }} · {{ solicitud.persona_social.nombre }}</p></header>
+  <section class="dif-card">
+    {% if error %}<p class="dif-alert">{{ error }}</p>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {% for titulo, enlace, form in formularios %}
+        <fieldset class="dif-phase"><legend>{{ titulo }}</legend>
+          {% if enlace.reutilizado %}<p>Documento vinculado del expediente</p>{% endif %}
+          <a href="{% url 'social_documento' enlace.documento_id %}" target="_blank" rel="noopener">Abrir documento</a>
+          <div class="dif-fields">{% for campo in form %}<div class="dif-field">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>{% endfor %}</div>
+        </fieldset>
+      {% empty %}<p>El ciudadano todavía debe adjuntar documentos.</p>{% endfor %}
+      {% if not solicitud.cita %}
+        <button class="btn-solid">Guardar validación</button>
+        <details><summary>Rechazar solicitud</summary><label for="rechazo">Motivo</label><textarea name="motivo_rechazo" id="rechazo"></textarea><button class="dif-secondary" name="rechazar" value="1">Registrar rechazo</button></details>
+      {% endif %}
+    </form>
+  </section>
+</main>
+{% endblock %}

@@ -175,7 +175,10 @@
 
                     <!-- ZONA DE ACCIONES Y MENSAJES -->
                     <div class="action-zone">
-                        {% if sol.estado == 'Aprobado' %}
+                        {% if sol.tramite.servicio_procuraduria %}
+                            <a class="btn-action" href="{% url 'social_solicitud' sol.pk %}">Ver solicitud de Procuraduría</a>
+                            {% if sol.cita_agendada %}<a class="btn-action" href="{% url 'social_ticket' sol.cita_agendada.pk %}">Ver cita y formatos</a>{% endif %}
+                        {% elif sol.estado == 'Aprobado' %}
                             {% if sol.cita_agendada %}
                                 <div style="color: #2e7d32; font-size: 13px; font-weight: 600;">
                                     Cita {{ sol.cita_agendada.get_estado_display|lower }} · {{ sol.cita_agendada.fecha|date:"d M Y" }} a las {{ sol.cita_agendada.hora|time:"H:i" }} hrs.

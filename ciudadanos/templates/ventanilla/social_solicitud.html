@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'mis_tramites' %}">← Mis trámites</a>
+  <header class="dif-hero"><p class="dif-kicker">{{ solicitud.folio }}</p><h1>{{ solicitud.tramite.nombre }}</h1><p>{{ solicitud.persona_social.nombre }} · {{ solicitud.estado }}</p></header>
+  <section class="dif-card">
+    {% if solicitud.datos_sociales.motivo_rechazo %}<p class="dif-alert">{{ solicitud.datos_sociales.motivo_rechazo }}</p>{% endif %}
+    {% if lista_agenda %}<a class="btn-solid" href="{% url 'social_agenda' solicitud.pk %}">Agendar cita</a>{% endif %}
+    {% if solicitud.cita %}<a href="{% url 'social_ticket' solicitud.cita.pk %}">Ver cita y formatos</a>{% endif %}
+    {% if items %}
+      <h2>Documentación</h2>
+      {% for titulo, tipo, doc, reutilizado in items %}
+        <article class="social-documento">
+          <h3>{{ titulo }}</h3>
+          {% if doc %}
+            {% if reutilizado %}<p>Documento recuperado del expediente</p>{% endif %}
+            <p>{{ doc.estado }}{% if doc.vence %} · Vigencia {{ doc.vence|date:'d/m/Y' }}{% endif %}</p>
+            {% if doc.observaciones %}<p>{{ doc.observaciones }}</p>{% endif %}
+            <a href="{% url 'social_documento' doc.pk %}" target="_blank" rel="noopener">Ver documento</a>
+          {% else %}<p>Por adjuntar</p>{% endif %}
+        </article>
+      {% endfor %}
+    {% endif %}
+    {% if editable and items %}
+      {% if formulario.fields %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}<input type="hidden" name="accion" value="enviar">
+        <div class="dif-fields">{% for campo in formulario %}<div class="dif-field">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>{% endfor %}</div>
+        <p>Documentos en PDF de hasta 5 MB cada uno. Domicilio e ingresos deben tener una antigüedad máxima de tres meses.</p>
+        <button class="btn-solid">Enviar a revisión</button>
+      </form>
+      {% endif %}
+      <form method="post">{% csrf_token %}<button class="dif-secondary" name="accion" value="vincular">Comprobar documentos existentes</button></form>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

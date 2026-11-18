@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'social_solicitud' solicitud.pk %}">← Solicitud</a>
+  <header class="dif-hero"><h1>Agenda de {{ solicitud.tramite.nombre }}</h1><p>{{ solicitud.persona_social.nombre }}</p></header>
+  <section class="dif-card">
+    <form method="get"><label for="sede">Sede</label><select id="sede" name="sede">
+      {% for s in sedes %}<option value="{{ s.pk }}"{% if sede.pk == s.pk %} selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+    </select><button class="dif-secondary">Ver horarios</button></form>
+    {% if sede %}<p>{{ sede.direccion }}</p>{% endif %}
+    {% if error %}<p class="dif-alert">{{ error }}</p>{% endif %}
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="sede" value="{{ sede.pk }}">
+      {% for fecha, horarios in dias %}
+        <fieldset class="dif-phase"><legend>{{ fecha|date:'l j F Y' }}</legend><div class="dif-slot-grid">
+          {% for hora, ocupado in horarios %}
+            <label class="dif-slot{% if ocupado %} dif-occupied{% endif %}">
+              <input type="radio" name="turno" value="{{ fecha|date:'Y-m-d' }}|{{ hora|time:'H:i:s' }}" required{% if ocupado %} disabled{% endif %}>
+              <span>{{ hora|time:'H:i' }}</span><small>{% if ocupado %}Sin cupo{% else %}Disponible{% endif %}</small>
+            </label>
+          {% endfor %}
+        </div></fieldset>
+      {% empty %}<p>Aún no hay turnos publicados para las próximas cuatro semanas.</p>{% endfor %}
+      {% if dias %}<button class="btn-solid">Confirmar cita</button>{% endif %}
+    </form>
+  </section>
+</main>
+{% endblock %}

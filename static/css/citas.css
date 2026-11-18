@@ -166,3 +166,10 @@
 }
 
 .dif-field input[type="checkbox"] { width: auto; }
+
+.social-datos { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 8px 14px; margin: 18px 0; overflow-wrap: anywhere; }
+.social-datos dt { font-weight: 700; }
+.social-datos dd { margin: 0; }
+.social-documento { margin: 16px 0; padding: 16px; border: 1px solid var(--p200); border-radius: 12px; min-width: 0; }
+.social-documento legend, .social-documento summary { font-weight: 700; padding: 4px; }
+.dif-card form + form, .dif-card form + h2 { margin-top: 20px; }

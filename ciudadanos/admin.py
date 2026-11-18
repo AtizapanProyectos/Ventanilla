@@ -30,7 +30,7 @@ class CiudadanoAdmin(UserAdmin):
             )
         }),
         ('Domicilio', {
-            'fields': ('cp', 'colonia', 'calle', 'numero', 'mz_lt')
+            'fields': ('cp', 'colonia', 'calle', 'numero', 'numero_interior', 'municipio', 'estado_domicilio', 'mz_lt')
         }),
         ('Datos profesionales', {'fields': ('cedula_profesional',)}),
         ('Datos del proveedor', {'fields': ('tipo_persona', 'rfc', 'razon_social', 'tiene_representante')}),
@@ -80,6 +80,24 @@ class TramiteAdmin(admin.ModelAdmin):
     list_filter = ('direccion', 'modalidad', 'es_cita_medica', 'es_cita_dental', 'es_servicio_social', 'es_alta_proveedor')
     search_fields = ('nombre',)
     inlines = [RequisitoInline, TurnoMedicoInline]
+
+
+@admin.register(SedeSocial)
+class SedeSocialAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'direccion', 'activa')
+
+
+@admin.register(HorarioSocial)
+class HorarioSocialAdmin(admin.ModelAdmin):
+    list_display = ('tramite', 'sede', 'dia', 'inicio', 'fin', 'duracion', 'cupo')
+    list_filter = ('tramite', 'sede')
+
+    def save_model(self, request, obj, form, change):
+        from django.db import transaction
+        with transaction.atomic():
+            SedeSocial.objects.select_for_update().get(pk=obj.sede_id)
+            obj.full_clean()
+            super().save_model(request, obj, form, change)
 
 
 @admin.register(Requisito)

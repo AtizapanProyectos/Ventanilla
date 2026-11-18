@@ -60,6 +60,9 @@ class Ciudadano(AbstractBaseUser, PermissionsMixin):
     calle = models.CharField(max_length=150, blank=True, null=True)
     numero = models.CharField(max_length=50, blank=True, null=True)
     mz_lt = models.CharField(max_length=50, blank=True, null=True)
+    numero_interior = models.CharField(max_length=50, blank=True)
+    municipio = models.CharField(max_length=150, blank=True)
+    estado_domicilio = models.CharField('estado del domicilio', max_length=150, blank=True)
     
     # --- CONTACTO Y GÉNERO ---
     genero = models.CharField(max_length=50, blank=True, null=True)
@@ -116,6 +119,9 @@ class Tramite(models.Model):
     )
     es_servicio_social = models.BooleanField('Servicio social estudiantil', default=False)
     es_alta_proveedor = models.BooleanField('Alta de proveedor', default=False)
+    servicio_procuraduria = models.CharField(max_length=15, blank=True, choices=[
+        ('socioeconomico', 'Estudio Socioeconómico'), ('psicologia', 'Consulta Psicológica'),
+    ])
     es_cita_dental = models.BooleanField(
         'Cita dental', default=False,
         help_text='Usa el formato de odontología. Activa también la opción Cita médica para la agenda clínica.',
@@ -154,6 +160,8 @@ class Solicitud(models.Model):
         ('En proceso', 'En proceso'),
         ('Aprobado', 'Aprobado'),
         ('Rechazado', 'Rechazado / Con observaciones'),
+        ('En revisión', 'En revisión'),
+        ('Requiere corrección', 'Requiere corrección'),
     ]
 
     tramite = models.ForeignKey(Tramite, on_delete=models.CASCADE)
@@ -169,11 +177,16 @@ class Solicitud(models.Model):
     nivel_estudios = models.CharField(max_length=12, choices=NIVELES_SERVICIO_SOCIAL, blank=True)
     porcentaje_creditos = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     datos_proveedor = models.JSONField(default=dict, blank=True, editable=False)
+    persona_social = models.ForeignKey('PersonaSocial', on_delete=models.CASCADE, null=True, blank=True)
+    datos_sociales = models.JSONField(default=dict, blank=True, editable=False)
 
     class Meta:
         permissions = [
             ('validar_servicio_social', 'Puede validar solicitudes de Servicio Social'),
             ('validar_proveedores', 'Puede validar alta de proveedores'),
+            ('revisar_procuraduria', 'Puede revisar documentos de Procuraduría Social'),
+            ('atender_socioeconomico', 'Puede atender estudios socioeconómicos'),
+            ('atender_psicologia', 'Puede atender consultas psicológicas'),
         ]
 
     def save(self, *args, **kwargs):
@@ -256,6 +269,7 @@ class Cita(models.Model):
     solicitud = models.OneToOneField(
         Solicitud, on_delete=models.CASCADE, null=True, blank=True, related_name='cita'
     )
+    turno_social = models.ForeignKey('TurnoSocial', on_delete=models.PROTECT, null=True, blank=True)
 
     # --- FECHA Y HORA ---
     fecha = models.DateField()
@@ -444,3 +458,103 @@ class DocumentoClinico(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+class PersonaSocial(models.Model):
+    responsable = models.ForeignKey(Ciudadano, on_delete=models.CASCADE, related_name='personas_sociales')
+    clave = models.CharField(max_length=40)
+    nombre = models.CharField(max_length=250)
+    curp = models.CharField(max_length=18, blank=True)
+    fecha_nacimiento = models.DateField()
+    parentesco = models.CharField(max_length=80)
+    datos = models.JSONField(default=dict, blank=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('responsable', 'clave'), name='persona_social_unica')]
+
+    def __str__(self):
+        return self.nombre
+
+
+class SedeSocial(models.Model):
+    nombre = models.CharField(max_length=200)
+    direccion = models.CharField('dirección', max_length=350)
+    activa = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class HorarioSocial(models.Model):
+    tramite = models.ForeignKey(Tramite, on_delete=models.CASCADE)
+    sede = models.ForeignKey(SedeSocial, on_delete=models.CASCADE)
+    dia = models.PositiveSmallIntegerField(choices=HorarioDireccion.DIAS_SEMANA)
+    inicio = models.TimeField()
+    fin = models.TimeField()
+    duracion = models.PositiveSmallIntegerField('duración en minutos', default=30)
+    cupo = models.PositiveSmallIntegerField(default=1)
+
+    def clean(self):
+        if not self.tramite_id or not self.sede_id or self.inicio is None or self.fin is None:
+            return
+        if not self.tramite.servicio_procuraduria:
+            raise ValidationError('Selecciona un trámite de Procuraduría Social.')
+        if self.fin <= self.inicio or not self.duracion or not self.cupo:
+            raise ValidationError('Revisa horario, duración y cupo.')
+        similares = type(self).objects.filter(
+            tramite=self.tramite, sede=self.sede, dia=self.dia,
+            inicio__lt=self.fin, fin__gt=self.inicio,
+        ).exclude(pk=self.pk)
+        if similares.exists():
+            raise ValidationError('Este horario se cruza con otro del mismo trámite y sede.')
+
+
+class TurnoSocial(models.Model):
+    tramite = models.ForeignKey(Tramite, on_delete=models.CASCADE)
+    sede = models.ForeignKey(SedeSocial, on_delete=models.PROTECT)
+    fecha = models.DateField()
+    hora = models.TimeField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('tramite', 'sede', 'fecha', 'hora'), name='turno_social_unico')]
+
+
+class DocumentoSocial(models.Model):
+    responsable = models.ForeignKey(Ciudadano, on_delete=models.CASCADE)
+    persona = models.ForeignKey(PersonaSocial, on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=40)
+    contexto = models.CharField(max_length=64)
+    archivo_original = models.ForeignKey(ArchivoRequisito, on_delete=models.PROTECT, null=True, blank=True)
+    contenido = models.BinaryField(null=True, blank=True)
+    nombre = models.CharField(max_length=255)
+    estado = models.CharField(max_length=20, default='Pendiente')
+    observaciones = models.TextField(blank=True)
+    fecha_documento = models.DateField(null=True, blank=True)
+    vence = models.DateField(null=True, blank=True)
+    sin_vencimiento = models.BooleanField(default=False)
+    revisor = models.ForeignKey(Ciudadano, on_delete=models.SET_NULL, null=True, related_name='+')
+    creado = models.DateTimeField(auto_now_add=True)
+    validado = models.DateTimeField(null=True, blank=True)
+
+
+class RequisitoSocial(models.Model):
+    solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='requisitos_sociales')
+    tipo = models.CharField(max_length=40)
+    documento = models.ForeignKey(DocumentoSocial, on_delete=models.PROTECT)
+    reutilizado = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('solicitud', 'tipo'), name='requisito_social_unico')]
+
+
+class AtencionSocial(models.Model):
+    cita = models.OneToOneField(Cita, on_delete=models.CASCADE, related_name='atencion_social')
+    datos = models.JSONField(default=dict)
+    identificacion = models.JSONField(default=dict)
+    version = models.PositiveIntegerField(default=0)
+    finalizada = models.DateTimeField(null=True, blank=True)
+    funcionario = models.ForeignKey(Ciudadano, on_delete=models.SET_NULL, null=True)
+    word = models.BinaryField(null=True, blank=True)
+    pdf = models.BinaryField(null=True, blank=True)
+    actualizado = models.DateTimeField(auto_now=True)

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from ciudadanos import panel_clinico, proveedores, servicio_social, views
+from ciudadanos import panel_clinico, proveedores, procuraduria, servicio_social, views
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -44,6 +44,13 @@ urlpatterns = [
     path('servicio-social/documento/<int:pk>/', servicio_social.descargar, name='descargar_documento_servicio_social'),
     path('proveedores/documento/<int:pk>/', proveedores.descargar, name='documento_proveedor'),
     path('proveedores/cita/<int:solicitud_id>/ticket/', views.ticket_proveedor, name='ticket_proveedor'),
+    path('procuraduria/solicitud/<int:pk>/', procuraduria.solicitud_detalle, name='social_solicitud'),
+    path('procuraduria/revisar/<int:pk>/', procuraduria.revisar, name='social_revisar'),
+    path('procuraduria/agenda/<int:pk>/', procuraduria.agenda, name='social_agenda'),
+    path('procuraduria/ticket/<int:pk>/', procuraduria.ticket, name='social_ticket'),
+    path('procuraduria/documento/<int:pk>/', procuraduria.documento, name='social_documento'),
+    path('procuraduria/atender/<int:pk>/', procuraduria.atender, name='social_atender'),
+    path('procuraduria/formato/<int:pk>/<str:extension>/', procuraduria.formato, name='social_formato'),
 ]
 
 if settings.DEBUG:

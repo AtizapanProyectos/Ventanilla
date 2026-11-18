@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/citas.css' %}">
+<main class="dif-shell">
+  <a class="dif-back" href="{% url 'inicio' %}">← Servicios del DIF</a>
+  <header class="dif-hero"><p class="dif-kicker">Procuraduría Social</p><h1>{{ tramite.nombre }}</h1></header>
+  <section class="dif-card">
+    <form method="get">
+      <label for="persona">Persona que recibirá la atención</label>
+      <select id="persona" name="persona">
+        <option value="titular"{% if seleccion == 'titular' %} selected{% endif %}>Titular de la cuenta</option>
+        {% for p in personas %}{% if p.clave != 'titular' %}
+          <option value="{{ p.pk }}"{% if seleccion == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.nombre }}</option>
+        {% endif %}{% endfor %}
+        <option value="nueva"{% if seleccion == 'nueva' %} selected{% endif %}>Agregar beneficiario</option>
+      </select>
+      <button class="dif-secondary">Seleccionar</button>
+    </form>
+    <form method="post" class="dif-form">
+      {% csrf_token %}<input type="hidden" name="persona" value="{{ seleccion }}">
+      {% if grupos %}
+        <h2>Datos recuperados del expediente</h2>
+        <dl class="social-datos">{% for titulo, valor in grupos %}<dt>{{ titulo }}</dt><dd>{{ valor }}</dd>{% endfor %}</dl>
+        <a href="?persona={{ seleccion }}&editar=1">Actualizar datos</a>
+      {% endif %}
+      <h2>{% if grupos %}Completa la información faltante{% else %}Datos de la persona atendida{% endif %}</h2>
+      <div class="dif-fields">
+        {% for campo in formulario %}
+          {% if campo.is_hidden %}{{ campo }}{% else %}
+            <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {{ formulario.non_field_errors }}
+      <p><button class="btn-solid">Continuar</button></p>
+    </form>
+  </section>
+</main>
+{% endblock %}
