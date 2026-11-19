@@ -211,7 +211,7 @@ class ArchivoRequisito(models.Model):
     contenido_pdf = models.BinaryField(null=True, blank=True)
     nombre_pdf = models.CharField(max_length=255, blank=True, editable=False)
     origen = models.ForeignKey(
-        'self', on_delete=models.RESTRICT, null=True, blank=True, related_name='vinculos',
+        'self', on_delete=models.CASCADE, null=True, blank=True, related_name='vinculos',
         help_text='Documento reutilizado. Sus archivos y validación anteriores se conservan.',
     )
     tipo_documento = models.CharField(max_length=40, blank=True)
@@ -525,7 +525,7 @@ class DocumentoSocial(models.Model):
     persona = models.ForeignKey(PersonaSocial, on_delete=models.CASCADE)
     tipo = models.CharField(max_length=40)
     contexto = models.CharField(max_length=64)
-    archivo_original = models.ForeignKey(ArchivoRequisito, on_delete=models.PROTECT, null=True, blank=True)
+    archivo_original = models.ForeignKey(ArchivoRequisito, on_delete=models.CASCADE, null=True, blank=True)
     contenido = models.BinaryField(null=True, blank=True)
     nombre = models.CharField(max_length=255)
     estado = models.CharField(max_length=20, default='Pendiente')
@@ -541,7 +541,7 @@ class DocumentoSocial(models.Model):
 class RequisitoSocial(models.Model):
     solicitud = models.ForeignKey(Solicitud, on_delete=models.CASCADE, related_name='requisitos_sociales')
     tipo = models.CharField(max_length=40)
-    documento = models.ForeignKey(DocumentoSocial, on_delete=models.PROTECT)
+    documento = models.ForeignKey(DocumentoSocial, on_delete=models.CASCADE)
     reutilizado = models.BooleanField(default=False)
 
     class Meta:

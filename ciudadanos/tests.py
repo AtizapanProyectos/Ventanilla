@@ -568,6 +568,43 @@ class ProveedoresTests(TestCase):
     'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 })
 class ProcuraduriaTests(TestCase):
+    def test_admin_elimina_ciudadano_con_documentos_y_vinculos_en_cascada(self):
+        from django.contrib import admin
+        from django.test import RequestFactory
+        from .models import ArchivoRequisito, AtencionSocial, DocumentoSocial, PersonaSocial, RequisitoSocial
+        solicitud = self.iniciar(self.estudio)
+        self.documentos_aprobados(solicitud)
+        cita = self.reservar(solicitud)
+        atencion = AtencionSocial.objects.create(cita=cita, word=b'WORD', pdf=b'%PDF-1.4')
+        requisito = self.estudio.requisitos.create(descripcion='Documento histórico')
+        original = ArchivoRequisito.objects.create(
+            solicitud=solicitud, requisito=requisito, nombre_pdf='original.pdf', contenido_pdf=b'%PDF-1.4',
+        )
+        vinculo = ArchivoRequisito.objects.create(solicitud=solicitud, requisito=requisito, origen=original)
+        documento = solicitud.requisitos_sociales.first().documento
+        documento.archivo_original = original
+        documento.save(update_fields=['archivo_original'])
+        request = RequestFactory().get('/admin/ciudadanos/ciudadano/')
+        request.user = self.admin
+        _, _, _, protegidos = admin.site._registry[Ciudadano].get_deleted_objects([self.user], request)
+        self.assertEqual(protegidos, [])
+        curp = self.user.pk
+        solicitud_pk, cita_pk, atencion_pk = solicitud.pk, cita.pk, atencion.pk
+        archivo_ids = [original.pk, vinculo.pk]
+        documento_ids = list(DocumentoSocial.objects.filter(responsable=self.user).values_list('pk', flat=True))
+        self.user.delete()
+        self.assertFalse(Ciudadano.objects.filter(pk=curp).exists())
+        self.assertFalse(Solicitud.objects.filter(pk=solicitud_pk).exists())
+        self.assertFalse(Cita.objects.filter(pk=cita_pk).exists())
+        self.assertFalse(AtencionSocial.objects.filter(pk=atencion_pk).exists())
+        self.assertFalse(ArchivoRequisito.objects.filter(pk__in=archivo_ids).exists())
+        self.assertFalse(DocumentoSocial.objects.filter(pk__in=documento_ids).exists())
+        self.assertFalse(RequisitoSocial.objects.filter(solicitud_id=solicitud_pk).exists())
+        self.assertFalse(PersonaSocial.objects.filter(responsable_id=curp).exists())
+        self.assertTrue(Ciudadano.objects.filter(pk=self.otro.pk).exists())
+        self.assertTrue(Ciudadano.objects.filter(pk=self.admin.pk).exists())
+        self.assertTrue(Tramite.objects.filter(pk=self.estudio.pk).exists())
+
     def setUp(self):
         from .models import SedeSocial, HorarioSocial
         self.user = Ciudadano.objects.create_user(
