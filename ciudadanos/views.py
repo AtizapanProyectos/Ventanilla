@@ -29,7 +29,7 @@ SERVICIOS_DIF = (
     ('Área Médica', 'Citas médicas y dentales.', ('Cita Médica', 'Cita Dental')),
     ('Servicio Social', 'Servicio social.', ('Servicio Social',)),
     ('Administración', 'Cita para alta y renovación de cédula de proveedores.',
-     ('Alta de Proveedor', 'Cita para alta y renovación de cédula de proveedores', 'Inscripción al Padrón de Proveedores')),
+     ('Alta de Proveedor',)),
     ('Procuraduría Social', 'Estudio socioeconómico / Consulta psicológica.',
      ('Estudio Socioeconómico', 'Consulta Psicológica')),
     ('Centros de Desarrollo Comunitario', 'Talleres, capacitaciones y actividades.',
@@ -338,6 +338,12 @@ def perfil_ciudadano(request):
 @login_required(login_url='iniciar_sesion')
 def iniciar_tramite(request, tramite_id):
     tramite = get_object_or_404(Tramite, id=tramite_id)
+    if not tramite.es_alta_proveedor and _texto_busqueda(tramite.nombre) in (
+        'inscripcion al padron de proveedores', 'cita para alta y renovacion de cedula de proveedores',
+    ):
+        vigente = Tramite.objects.filter(es_alta_proveedor=True, nombre__iexact='Alta de Proveedor').first()
+        if vigente:
+            return redirect('iniciar_tramite', tramite_id=vigente.pk)
     if tramite.servicio_procuraduria:
         return procuraduria.iniciar(request, tramite)
     if tramite.es_cita_medica:
