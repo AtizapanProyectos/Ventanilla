@@ -468,11 +468,13 @@ class ProveedoresTests(TestCase):
         self.assertContains(preparada, 'Documento reutilizado')
         self.assertNotContains(preparada, 'Acta constitutiva')
         self.assertNotContains(preparada, 'Poder suficiente')
+        fotografia = self.tramite.requisitos.get(tipo_documento='fotografias')
+        self.assertNotContains(preparada, f'name="req_{fotografia.pk}"')
         datos = self.datos_carga(self.perfil)
         del datos[f'req_{req.pk}']
         self.assertRedirects(self.client.post(self.inicio, datos), reverse('mis_tramites'))
         solicitud = Solicitud.objects.get(tramite=self.tramite)
-        self.assertEqual(solicitud.archivos.count(), 7)
+        self.assertEqual(solicitud.archivos.count(), 6)
         vinculo = solicitud.archivos.get(requisito=req)
         self.assertEqual(vinculo.origen, origen)
         self.assertIsNone(vinculo.contenido_pdf)
@@ -505,6 +507,14 @@ class ProveedoresTests(TestCase):
         self.client.post(revision, decisiones)
         solicitud.refresh_from_db()
         self.assertEqual(solicitud.estado, 'Aprobado')
+        # Una fotografía de una solicitud anterior no debe bloquear la agenda ni pedirse al revisor.
+        foto_anterior = self.Archivo.objects.create(
+            solicitud=solicitud, requisito=fotografia, nombre_pdf='foto.pdf', contenido_pdf=b'%PDF-1.4',
+            estado_validacion='Rechazado',
+        )
+        from .proveedores import validada
+        self.assertTrue(validada(solicitud))
+        self.assertNotContains(self.client.get(revision), f'name="estado_doc_{foto_anterior.pk}"')
         HorarioDireccion.objects.create(
             direccion=self.tramite.direccion, dia_semana=0, hora_inicio=time(12),
             hora_fin=time(13), duracion_cita_minutos=30,
@@ -512,10 +522,12 @@ class ProveedoresTests(TestCase):
         self.client.force_login(self.usuario)
         ahora = datetime(2026, 11, 23, 9, tzinfo=ZoneInfo('America/Mexico_City'))
         with patch('ciudadanos.proveedores.timezone.localtime', return_value=ahora):
+            self.assertContains(self.client.get(agenda), 'Recuerda llevar dos fotografías')
             ticket = reverse('ticket_proveedor', args=[solicitud.pk])
             for _ in range(2):
                 self.assertRedirects(self.client.post(agenda, {'turno': '2026-11-23|12:30:00'}), ticket)
             self.assertContains(self.client.get(ticket), self.perfil['rfc'])
+            self.assertContains(self.client.get(ticket), 'Recuerda llevar dos fotografías')
             self.assertEqual(Cita.objects.filter(solicitud=solicitud).count(), 1)
 
     def test_moral_requiere_razon_social_y_no_reutiliza_otro_rfc(self):
@@ -533,7 +545,7 @@ class ProveedoresTests(TestCase):
         self.assertIsNone(reutilizable(req, datos.cleaned_data, self.usuario))
         self.assertRedirects(self.client.post(self.inicio, self.datos_carga(perfil)), reverse('mis_tramites'))
         solicitud = Solicitud.objects.exclude(pk=anterior.pk).get(tramite=self.tramite)
-        self.assertEqual(solicitud.archivos.count(), 8)
+        self.assertEqual(solicitud.archivos.count(), 7)
         self.assertTrue(solicitud.archivos.filter(requisito__tipo_documento='poder_representante').exists())
         self.assertFalse(solicitud.archivos.filter(requisito__tipo_documento='acta_nacimiento').exists())
         self.assertEqual(solicitud.datos_proveedor['razon_social'], 'Empresa de Prueba')

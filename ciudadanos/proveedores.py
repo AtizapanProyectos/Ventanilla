@@ -53,6 +53,7 @@ def requisitos_aplicables(tramite, datos):
         req for req in tramite.requisitos.order_by('pk')
         if (not req.aplica_persona or req.aplica_persona == datos['tipo_persona'])
         and (not req.requiere_representante or datos['tiene_representante'])
+        and not req.es_fotografia and req.tipo_documento != 'fotografias'
     ]
 
 
@@ -125,7 +126,7 @@ def validada(solicitud):
     if not datos.get('rfc') or datos.get('tipo_persona') not in dict(Ciudadano.TIPOS_PERSONA):
         return False
     ids = {r.pk for r in requisitos_aplicables(solicitud.tramite, datos)}
-    archivos = list(solicitud.archivos.values_list('requisito_id', 'estado_validacion'))
+    archivos = list(solicitud.archivos.filter(requisito_id__in=ids).values_list('requisito_id', 'estado_validacion'))
     return bool(ids) and ids == {pk for pk, estado in archivos if estado == 'Aprobado'} and all(
         estado == 'Aprobado' for _, estado in archivos
     )
@@ -234,7 +235,8 @@ def revisar(request, solicitud):
     with transaction.atomic():
         if request.method == 'POST':
             solicitud = Solicitud.objects.select_for_update().get(pk=solicitud.pk)
-        archivos = list(solicitud.archivos.select_related('requisito', 'origen').defer('contenido_pdf'))
+        requisitos = requisitos_aplicables(solicitud.tramite, solicitud.datos_proveedor)
+        archivos = list(solicitud.archivos.filter(requisito__in=requisitos).select_related('requisito', 'origen').defer('contenido_pdf'))
         if request.method == 'POST' and not hasattr(solicitud, 'cita'):
             for archivo in archivos:
                 estado = request.POST.get(f'estado_doc_{archivo.pk}')

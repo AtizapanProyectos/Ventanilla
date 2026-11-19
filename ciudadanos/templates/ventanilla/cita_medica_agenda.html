@@ -59,6 +59,7 @@
       <hr>
       <p class="dif-selection" data-selection aria-live="polite">Selecciona un turno para ver el resumen.</p>
       {% include 'ventanilla/requisitos_cita.html' %}
+      {% if solicitud.tramite.es_alta_proveedor %}{% include 'ventanilla/nota_fotografias_proveedor.html' %}{% endif %}
       <button type="submit" class="btn-solid" data-submit>{% if titulo_agenda or requisitos_cita %}Confirmar cita{% elif solicitud.tramite.es_cita_dental %}Confirmar cita dental{% else %}Confirmar cita médica{% endif %}</button>
     </aside>
   </form>

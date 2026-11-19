@@ -37,6 +37,7 @@
       <div><dt>Estado</dt><dd>{{ cita.get_estado_display }}</dd></div>
     </dl>
     {% include 'ventanilla/requisitos_cita.html' %}
+    {% if cita.tramite.es_alta_proveedor %}{% include 'ventanilla/nota_fotografias_proveedor.html' %}{% endif %}
   </article>
   <div class="dif-ticket-acciones">
     <button class="btn-solid" type="button" onclick="window.print()">Imprimir ticket</button>
