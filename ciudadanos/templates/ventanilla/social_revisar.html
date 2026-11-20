@@ -7,6 +7,7 @@
   <header class="dif-hero"><h1>Revisión documental</h1><p>{{ solicitud.folio }} · {{ solicitud.persona_social.nombre }}</p></header>
   <section class="dif-card">
     {% if error %}<p class="dif-alert">{{ error }}</p>{% endif %}
+    <p>Revisa el documento, su vigencia y los datos del ciudadano antes de aprobarlo. Los comprobantes de domicilio e ingresos deben tener una antigüedad máxima de tres meses.</p>
     <form method="post">
       {% csrf_token %}
       {% for titulo, enlace, form in formularios %}
@@ -18,7 +19,6 @@
       {% empty %}<p>El ciudadano todavía debe adjuntar documentos.</p>{% endfor %}
       {% if not solicitud.cita %}
         <button class="btn-solid">Guardar validación</button>
-        <details><summary>Rechazar solicitud</summary><label for="rechazo">Motivo</label><textarea name="motivo_rechazo" id="rechazo"></textarea><button class="dif-secondary" name="rechazar" value="1">Registrar rechazo</button></details>
       {% endif %}
     </form>
   </section>

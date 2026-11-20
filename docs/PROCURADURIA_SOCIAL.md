@@ -16,7 +16,7 @@ El ciudadano elige al titular o a un beneficiario de su cuenta. Se recuperan dat
 
 El estudio solicita comprobantes de domicilio e ingresos de hasta tres meses e identificación del peticionario. La modalidad general agrega la solicitud institucional; beca agrega también boleta o comprobante de estudios; judicial utiliza oficio judicial en lugar de solicitud institucional.
 
-Los archivos son PDF de hasta 5 MB. El personal registra fecha de emisión y vencimiento, o ausencia de vencimiento cuando corresponda. Domicilio e ingresos siempre requieren fecha de emisión y vencen a los tres meses calendario. Los documentos aprobados, vigentes y del mismo contexto se vinculan automáticamente; los documentos históricos sin fechas necesitan una revisión de vigencia.
+Los archivos son PDF de hasta 5 MB. Como en Alta de Proveedor, el personal abre cada documento, elige Pendiente, Documento Válido o Rechazado y puede agregar observaciones. La vigencia se comprueba visualmente en el documento; no se capturan fechas ni casillas de vencimiento. Los documentos aprobados del mismo contexto se vinculan automáticamente. Los archivos históricos de otros módulos pasan a revisión del personal sin duplicarse. La agenda se habilita cuando todos los documentos obligatorios están aprobados.
 
 Psicología no exige archivos, conforme a los requisitos recibidos. Después de completar datos permite agendar directamente. Una nueva sesión se inicia como una nueva solicitud, conservando los datos del beneficiario.
 

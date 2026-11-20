@@ -649,8 +649,7 @@ class ProcuraduriaTests(TestCase):
         for enlace in solicitud.requisitos_sociales.all():
             prefijo = f'doc{enlace.documento_id}-'
             validaciones.update({
-                prefijo + 'estado': 'Aprobado', prefijo + 'fecha_documento': '2026-11-01',
-                prefijo + 'sin_vencimiento': True,
+                prefijo + 'estado': 'Aprobado', prefijo + 'observaciones': '',
             })
         respuesta = self.client.post(reverse('social_revisar', args=[solicitud.pk]), validaciones)
         self.assertRedirects(respuesta, reverse('panel_funcionario'))
@@ -715,9 +714,9 @@ class ProcuraduriaTests(TestCase):
                                         {'persona': solicitud.persona_social_id}).status_code, 404)
         self.assertEqual(PersonaSocial.objects.count(), 1)
 
-    def test_modalidades_vigencia_y_reutilizacion(self):
+    def test_modalidades_validacion_simple_y_reutilizacion(self):
         from .models import DocumentoSocial
-        from .procuraduria import tipos_requeridos, tres_meses
+        from .procuraduria import tipos_requeridos
         solicitud = self.iniciar(self.estudio, modalidad='judicial')
         self.assertIn('oficio_judicial', tipos_requeridos(solicitud))
         self.assertNotIn('solicitud_institucion', tipos_requeridos(solicitud))
@@ -730,11 +729,18 @@ class ProcuraduriaTests(TestCase):
         self.assertEqual(DocumentoSocial.objects.count(), 4)
         self.assertEqual(nueva.estado, 'Aprobado')
         doc = nueva.requisitos_sociales.get(tipo='comprobante_domicilio').documento
-        doc.fecha_documento = date(2026, 7, 1)
+        self.assertIsNone(doc.fecha_documento)
+        self.assertIsNone(doc.vence)
+        self.client.force_login(self.admin)
+        revision = self.client.get(reverse('social_revisar', args=[nueva.pk]))
+        for campo in ('fecha_documento', 'vence', 'sin_vencimiento'):
+            self.assertNotContains(revision, f'name="doc{doc.pk}-{campo}"')
+        self.assertContains(revision, 'Documento Válido')
+        self.client.force_login(self.user)
+        doc.estado = 'Rechazado'
         doc.save()
         self.assertRedirects(self.client.get(reverse('social_agenda', args=[nueva.pk])),
                              reverse('social_solicitud', args=[nueva.pk]))
-        self.assertEqual(tres_meses(date(2026, 1, 31)), date(2026, 4, 30))
 
     def test_cupo_y_permisos_especificos_del_personal(self):
         from django.contrib.auth.models import Permission
@@ -776,9 +782,8 @@ class ProcuraduriaTests(TestCase):
         validaciones = {}
         for e in solicitud.requisitos_sociales.all():
             prefijo = f'doc{e.documento_id}-'
-            validaciones.update({prefijo + 'estado': 'Aprobado', prefijo + 'sin_vencimiento': True,
-                                 prefijo + 'fecha_documento': '2026-11-01'})
-        validaciones.update({f'doc{enlace.documento_id}-estado': 'Requiere corrección',
+            validaciones.update({prefijo + 'estado': 'Aprobado'})
+        validaciones.update({f'doc{enlace.documento_id}-estado': 'Rechazado',
                              f'doc{enlace.documento_id}-observaciones': 'La boleta no es legible.'})
         self.client.post(reverse('social_revisar', args=[solicitud.pk]), validaciones)
         solicitud.refresh_from_db()

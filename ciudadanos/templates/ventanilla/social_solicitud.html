@@ -16,7 +16,7 @@
           <h3>{{ titulo }}</h3>
           {% if doc %}
             {% if reutilizado %}<p>Documento recuperado del expediente</p>{% endif %}
-            <p>{{ doc.estado }}{% if doc.vence %} · Vigencia {{ doc.vence|date:'d/m/Y' }}{% endif %}</p>
+            <p>{{ doc.estado }}</p>
             {% if doc.observaciones %}<p>{{ doc.observaciones }}</p>{% endif %}
             <a href="{% url 'social_documento' doc.pk %}" target="_blank" rel="noopener">Ver documento</a>
           {% else %}<p>Por adjuntar</p>{% endif %}

@@ -1,5 +1,4 @@
-import calendar
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from hashlib import sha256
 from io import BytesIO
 from uuid import uuid4
@@ -82,29 +81,13 @@ def tipos_requeridos(solicitud):
     return tipos
 
 
-def tres_meses(fecha):
-    mes = fecha.month + 2
-    anio = fecha.year + mes // 12
-    mes = mes % 12 + 1
-    return date(anio, mes, min(fecha.day, calendar.monthrange(anio, mes)[1]))
-
-
-def vigente(documento, hoy=None):
-    hoy = hoy or timezone.localdate()
-    if documento.estado != 'Aprobado':
-        return False
-    if documento.tipo in TEMPORALES:
-        return bool(documento.fecha_documento and documento.fecha_documento <= hoy <= tres_meses(documento.fecha_documento))
-    return documento.sin_vencimiento or bool(documento.vence and documento.vence >= hoy)
-
-
 def apta(solicitud):
     if not solicitud.persona_social_id:
         return False
     enlaces = {r.tipo: r for r in solicitud.requisitos_sociales.select_related('documento')}
     return all(
         tipo in enlaces and enlaces[tipo].documento.contexto == contexto(solicitud, tipo)
-        and vigente(enlaces[tipo].documento)
+        and enlaces[tipo].documento.estado == 'Aprobado'
         for tipo in tipos_requeridos(solicitud)
     )
 
@@ -114,7 +97,7 @@ def _encontrar_documento(solicitud, tipo):
         responsable=solicitud.ciudadano, contexto=contexto(solicitud, tipo), tipo=tipo,
     ).defer('contenido').order_by('-validado', '-creado')
     for doc in qs:
-        if vigente(doc):
+        if doc.estado == 'Aprobado':
             return doc
     return None
 
@@ -198,7 +181,7 @@ def iniciar(request, tramite):
 
 
 def _importar_antiguo(solicitud, tipo):
-    # Datos sin fecha conocida entran a revisión, nunca se consideran vigentes automáticamente.
+    # Los archivos históricos se vinculan sin duplicarlos y pasan a revisión del personal.
     if tipo != 'identificacion_oficial' and solicitud.persona_social.clave != 'titular':
         return None
     descripciones = {
@@ -239,8 +222,6 @@ def solicitud_detalle(request, pk):
             enlace = enlaces.get(tipo)
             doc = enlace.documento if enlace else None
             requerido = doc is None or doc.estado in ('Rechazado', 'Requiere corrección')
-            if doc and doc.estado == 'Aprobado' and not vigente(doc):
-                requerido = True
             if requerido and editable:
                 formulario.fields[tipo] = forms.FileField(
                     label=DOCUMENTOS[tipo], validators=[validar_pdf_clinico],
@@ -282,35 +263,15 @@ def solicitud_detalle(request, pk):
 
 
 class ValidacionDocumentoForm(forms.Form):
-    estado = forms.ChoiceField(choices=[(v, v) for v in ('Pendiente', 'En revisión', 'Aprobado', 'Requiere corrección', 'Rechazado')])
-    fecha_documento = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'))
-    vence = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'))
-    sin_vencimiento = forms.BooleanField(required=False)
+    estado = forms.ChoiceField(label='Validación', choices=ArchivoRequisito.ESTADO_DOC_CHOICES)
     observaciones = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 2}))
 
     def __init__(self, *args, documento, **kwargs):
         self.documento = documento
         super().__init__(*args, **kwargs)
-
-    def clean(self):
-        d = super().clean()
-        if d.get('estado') == 'Aprobado':
-            fecha = d.get('fecha_documento')
-            if fecha and fecha > timezone.localdate():
-                self.add_error('fecha_documento', 'La fecha no puede ser futura.')
-            if self.documento.tipo in TEMPORALES:
-                if not fecha or tres_meses(fecha) < timezone.localdate():
-                    self.add_error('fecha_documento', 'Se requiere un comprobante de hasta tres meses.')
-                if fecha:
-                    d['vence'] = tres_meses(fecha)
-                d['sin_vencimiento'] = False
-            elif not d.get('sin_vencimiento') and not d.get('vence'):
-                self.add_error('vence', 'Registra vencimiento o marca sin vencimiento.')
-            if d.get('vence') and d['vence'] < timezone.localdate():
-                self.add_error('vence', 'El documento está vencido.')
-        elif d.get('estado') in ('Rechazado', 'Requiere corrección') and not d.get('observaciones'):
-            self.add_error('observaciones', 'Explica qué debe corregirse.')
-        return d
+        self.initial['estado'] = {
+            'En revisión': 'Pendiente', 'Requiere corrección': 'Rechazado',
+        }.get(documento.estado, documento.estado)
 
 
 @never_cache
@@ -331,6 +292,9 @@ def revisar(request, pk):
                 request.POST if request.method == 'POST' else None, documento=doc, prefix=f'doc{doc.pk}',
                 initial={n: getattr(doc, n) for n in ValidacionDocumentoForm.base_fields},
             )
+            if hasattr(solicitud, 'cita'):
+                for campo in form.fields.values():
+                    campo.disabled = True
             formularios.append((DOCUMENTOS[enlace.tipo], enlace, form))
         rechazo = request.POST.get('rechazar') == '1'
         error = ''
