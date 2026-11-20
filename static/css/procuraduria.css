@@ -1,0 +1,44 @@
+.social-start .dif-hero,.social-agenda .dif-hero{padding:28px 32px}
+.social-start .dif-hero h1,.social-agenda .dif-hero h1{font-size:clamp(1.8rem,3.5vw,2.5rem)}
+.social-start .dif-hero>p:last-child{max-width:670px;margin-bottom:0;opacity:.9;font-size:.95rem}
+.social-progress{display:flex;gap:32px;list-style:none;margin:0 0 24px;padding:0 4px;font-size:.88rem;color:var(--text2)}
+.social-progress li{display:flex;align-items:center;gap:10px}
+.social-progress span{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--p200);border-radius:50%;background:#fff;font-weight:700}
+.social-progress [aria-current]{color:var(--p800);font-weight:700}
+.social-progress [aria-current] span{background:var(--p700);border-color:var(--p700);color:#fff}
+.social-persona{display:flex;align-items:center;justify-content:space-between;gap:28px;margin-bottom:22px}
+.social-persona h2{font-size:1.1rem;margin:8px 0}
+.social-persona p:last-child,.social-section-head p:last-child{color:var(--text2);font-size:.9rem;margin:6px 0 0}
+.social-selector{display:flex;align-items:flex-end;gap:12px;min-width:0;flex:0 1 430px}
+.social-selector>div{flex:1;min-width:0}
+.social-selector label{display:block;font-size:.8rem;font-weight:650;margin-bottom:8px;color:var(--text2)}
+.social-selector select{display:block;width:100%;min-height:46px;padding:10px 32px 10px 14px;border:1px solid var(--p200);border-radius:10px;font:inherit;color:var(--text);background:#fff}
+.social-selector button{min-height:46px}
+.social-selector .dif-secondary,.social-section-head .dif-secondary{border:1px solid var(--p200);background:var(--p50)}
+.social-registration{display:grid;gap:22px}
+.social-section-head{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:26px}
+.social-section-head h2{font-size:1.25rem;line-height:1.35;margin:8px 0 0}
+.social-section-head>a{flex-shrink:0;text-decoration:none;font-size:.85rem}
+.social-data-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 30px;margin:0}
+.social-data-grid>div{min-width:0}
+.social-data-grid dt{font-size:.77rem;color:var(--text2);margin-bottom:6px;font-weight:500}
+.social-data-grid dd{margin:0;font-weight:600;font-size:.94rem;line-height:1.45;overflow-wrap:anywhere}
+.social-start .dif-fields{gap:24px}
+.social-start .dif-field{background:transparent;border:0;border-radius:0;padding:0}
+.social-start .dif-field label{font-size:.85rem;font-weight:650;margin-bottom:9px;line-height:1.4}
+.social-start .dif-field :is(input,select,textarea){min-height:46px;padding:11px 13px;border-color:var(--p200);transition:border-color .15s,box-shadow .15s}
+.social-start .dif-field :is(input,select,textarea):focus{border-color:var(--p600);box-shadow:0 0 0 3px var(--p100);outline:none}
+.social-start .dif-field-error :is(input,select,textarea){border-color:#bb425e}
+.social-optional{display:inline-block;margin-left:8px;font-size:.7rem;font-weight:400;color:var(--text2)}
+.social-form-footer{display:flex;justify-content:space-between;align-items:center;gap:24px;border-top:1px solid var(--p100);margin-top:30px;padding-top:24px}
+.social-form-footer p{max-width:480px;font-size:.85rem;color:var(--text2);margin:0}
+.social-form-footer .btn-solid{min-height:46px;flex-shrink:0;padding:12px 22px}
+.social-empty{text-align:center;padding:36px 20px;color:var(--text2)}
+.social-empty h2{color:var(--text);font-size:1.2rem}
+.social-agenda .social-selector{max-width:620px;margin-bottom:16px}
+.social-agenda .dif-slot-grid{grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px}
+.social-agenda .dif-slot{grid-template-columns:auto minmax(0,1fr);padding:12px;gap:4px 6px}
+.social-agenda .dif-slot small{grid-column:1/-1;font-size:.75rem}
+@media(max-width:760px){.social-persona{align-items:stretch;flex-direction:column;gap:20px}.social-selector{flex-basis:auto}.social-data-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.social-section-head{align-items:flex-start}.social-form-footer{flex-direction:column;align-items:stretch}.social-form-footer .btn-solid{width:100%}.social-start .dif-hero,.social-agenda .dif-hero{padding:24px}}
+@media(max-width:430px){.social-data-grid{grid-template-columns:1fr}.social-section-head{flex-direction:column;gap:14px}.social-progress{gap:20px;font-size:.8rem}.social-selector{flex-direction:column;align-items:stretch}.social-selector>div{width:100%}.social-selector button{width:100%}.social-start .dif-fields{gap:20px}}
+.social-start,.social-agenda{width:100%;box-sizing:border-box}

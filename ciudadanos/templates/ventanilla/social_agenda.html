@@ -2,13 +2,14 @@
 {% load static %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/citas.css' %}">
-<main class="dif-shell">
+<link rel="stylesheet" href="{% static 'css/procuraduria.css' %}">
+<main class="dif-shell social-agenda">
   <a class="dif-back" href="{% url 'social_solicitud' solicitud.pk %}">← Solicitud</a>
   <header class="dif-hero"><h1>Agenda de {{ solicitud.tramite.nombre }}</h1><p>{{ solicitud.persona_social.nombre }}</p></header>
   <section class="dif-card">
-    <form method="get"><label for="sede">Sede</label><select id="sede" name="sede">
+    {% if sedes %}<form method="get" class="social-selector"><div><label for="sede">Sede de atención</label><select id="sede" name="sede">
       {% for s in sedes %}<option value="{{ s.pk }}"{% if sede.pk == s.pk %} selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
-    </select><button class="dif-secondary">Ver horarios</button></form>
+    </select></div><button class="dif-secondary">Ver horarios</button></form>{% endif %}
     {% if sede %}<p>{{ sede.direccion }}</p>{% endif %}
     {% if error %}<p class="dif-alert">{{ error }}</p>{% endif %}
     <form method="post">
@@ -22,7 +23,7 @@
             </label>
           {% endfor %}
         </div></fieldset>
-      {% empty %}<p>Aún no hay turnos publicados para las próximas cuatro semanas.</p>{% endfor %}
+      {% empty %}<div class="social-empty"><h2>Por ahora no hay citas disponibles</h2><p>Aún no hay turnos publicados para las próximas cuatro semanas. Vuelve a consultar la agenda más adelante.</p></div>{% endfor %}
       {% if dias %}<button class="btn-solid">Confirmar cita</button>{% endif %}
     </form>
   </section>

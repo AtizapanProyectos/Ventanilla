@@ -118,6 +118,9 @@ def iniciar(request, tramite):
     if persona:
         inicial.update(nombre=persona.nombre, curp=persona.curp, parentesco=persona.parentesco,
                        fecha_nacimiento=persona.fecha_nacimiento)
+    if psicologia:
+        inicial['municipio'] = inicial.get('municipio') or 'Atizapán de Zaragoza'
+        inicial['estado_domicilio'] = inicial.get('estado_domicilio') or 'Estado de México'
     inicial['modalidad'] = 'general'
     campos_faltantes = [
         n for n in IdentificacionForm.base_fields
@@ -156,7 +159,7 @@ def iniciar(request, tramite):
                 ciudadano=request.user, tramite=tramite, persona_social=persona,
             ).exclude(cita__estado__in=('Atendida', 'Cancelada', 'Reprogramada')).exclude(estado='Rechazado').first()
             if activa:
-                return redirect('social_solicitud', activa.pk)
+                return redirect('social_agenda' if psicologia else 'social_solicitud', activa.pk)
             solicitud = Solicitud.objects.create(
                 ciudadano=request.user, tramite=tramite, persona_social=persona, datos_sociales=datos,
                 estado='Aprobado' if psicologia else 'Pendiente', folio=f'TRAM-{uuid4().hex[:15].upper()}',
@@ -170,10 +173,15 @@ def iniciar(request, tramite):
                 solicitud.save(update_fields=['estado'])
         return redirect('social_agenda' if psicologia or solicitud.estado == 'Aprobado' else 'social_solicitud', solicitud.pk)
     grupos = []
+    etiquetas = {
+        'nombre': 'Nombre completo', 'curp': 'CURP', 'fecha_nacimiento': 'Fecha de nacimiento',
+        'parentesco': 'Persona atendida', 'telefono': 'Teléfono', 'correo': 'Correo electrónico',
+        'rfc_personal': 'RFC personal',
+    }
     for nombre, campo in formulario.fields.items():
         if nombre not in ('modalidad', 'referencia') and inicial.get(nombre) and not request.GET.get('editar') and not formulario.is_bound:
             campo.widget = forms.HiddenInput()
-            grupos.append((campo.label or nombre.replace('_', ' ').capitalize(), inicial[nombre]))
+            grupos.append((etiquetas.get(nombre) or campo.label or nombre.replace('_', ' ').capitalize(), inicial[nombre]))
     return render(request, 'ventanilla/social_inicio.html', {
         'tramite': tramite, 'formulario': formulario, 'personas': propias, 'seleccion': seleccion,
         'grupos': grupos, 'faltantes': campos_faltantes,

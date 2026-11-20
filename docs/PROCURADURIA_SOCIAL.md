@@ -2,6 +2,8 @@
 
 La migración 0014 crea Estudio Socioeconómico y Consulta Psicológica. No crea sedes ni horarios ficticios.
 
+La migración 0017 habilita psicología con el horario autorizado: lunes a viernes de 09:00 a 16:00, citas de 45 minutos y cupo de una persona. Utiliza la sede Sistema Municipal DIF con municipio y estado; la dirección de calle puede completarse en Admin. No reemplaza horarios configurados previamente. En psicología se precargan Atizapán de Zaragoza y Estado de México cuando faltan esos datos y se pasa directamente a la agenda, sin revisión documental.
+
 ## Configuración en Django Admin
 
 1. En **Sede socials**, registrar nombre y dirección reales y marcar activa.

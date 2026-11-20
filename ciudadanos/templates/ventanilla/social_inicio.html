@@ -2,39 +2,45 @@
 {% load static %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/citas.css' %}">
-<main class="dif-shell">
+<link rel="stylesheet" href="{% static 'css/procuraduria.css' %}">
+<main class="dif-shell social-start">
   <a class="dif-back" href="{% url 'inicio' %}">← Servicios del DIF</a>
-  <header class="dif-hero"><p class="dif-kicker">Procuraduría Social</p><h1>{{ tramite.nombre }}</h1></header>
-  <section class="dif-card">
-    <form method="get">
-      <label for="persona">Persona que recibirá la atención</label>
+  <header class="dif-hero"><p class="dif-kicker">Procuraduría Social</p><h1>{{ tramite.nombre }}</h1><p>Recuperamos tu información para que no tengas que repetirla.</p></header>
+  <ol class="social-progress" aria-label="Etapas del trámite"><li aria-current="step"><span>1</span>Tus datos</li>{% if tramite.servicio_procuraduria != 'psicologia' %}<li><span>2</span>Documentos</li>{% endif %}<li><span>{% if tramite.servicio_procuraduria == 'psicologia' %}2{% else %}3{% endif %}</span>Tu cita</li></ol>
+  <section class="dif-card social-persona">
+    <div><p class="dif-kicker">Persona atendida</p><h2>¿Para quién es la atención?</h2><p>Elige tu cuenta o registra a un beneficiario.</p></div>
+    <form method="get" class="social-selector">
+      <div><label for="persona">Selecciona una persona</label>
       <select id="persona" name="persona">
         <option value="titular"{% if seleccion == 'titular' %} selected{% endif %}>Titular de la cuenta</option>
         {% for p in personas %}{% if p.clave != 'titular' %}
           <option value="{{ p.pk }}"{% if seleccion == p.pk|stringformat:'s' %} selected{% endif %}>{{ p.nombre }}</option>
         {% endif %}{% endfor %}
         <option value="nueva"{% if seleccion == 'nueva' %} selected{% endif %}>Agregar beneficiario</option>
-      </select>
+      </select></div>
       <button class="dif-secondary">Seleccionar</button>
     </form>
-    <form method="post" class="dif-form">
+  </section>
+    <form method="post" class="social-registration">
       {% csrf_token %}<input type="hidden" name="persona" value="{{ seleccion }}">
       {% if grupos %}
-        <h2>Datos recuperados del expediente</h2>
-        <dl class="social-datos">{% for titulo, valor in grupos %}<dt>{{ titulo }}</dt><dd>{{ valor }}</dd>{% endfor %}</dl>
-        <a href="?persona={{ seleccion }}&editar=1">Actualizar datos</a>
+        <section class="dif-card social-recovered">
+          <header class="social-section-head"><div><p class="dif-kicker">Expediente ciudadano</p><h2>Datos que ya tenemos</h2><p>No necesitas volver a capturarlos.</p></div><a class="dif-secondary" href="?persona={{ seleccion }}&editar=1">Actualizar datos</a></header>
+          <dl class="social-data-grid">{% for titulo, valor in grupos %}<div><dt>{{ titulo }}</dt><dd>{{ valor }}</dd></div>{% endfor %}</dl>
+        </section>
       {% endif %}
-      <h2>{% if grupos %}Completa la información faltante{% else %}Datos de la persona atendida{% endif %}</h2>
+      <section class="dif-card social-complete">
+      <header class="social-section-head"><div><p class="dif-kicker">{% if grupos %}Un paso más{% else %}Información personal{% endif %}</p><h2>{% if grupos %}Completa tus datos{% else %}Datos de la persona atendida{% endif %}</h2><p>Revisa tu información antes de continuar.</p></div></header>
       <div class="dif-fields">
         {% for campo in formulario %}
           {% if campo.is_hidden %}{{ campo }}{% else %}
-            <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}</div>
+            <div class="dif-field{% if campo.errors %} dif-field-error{% endif %}"><label for="{{ campo.id_for_label }}">{{ campo.label }}{% if not campo.field.required %}<span class="social-optional">Opcional</span>{% endif %}</label>{{ campo }}{{ campo.errors }}</div>
           {% endif %}
         {% endfor %}
       </div>
       {{ formulario.non_field_errors }}
-      <p><button class="btn-solid">Continuar</button></p>
+      <div class="social-form-footer"><p>{% if tramite.servicio_procuraduria == 'psicologia' %}Elige tu horario en el siguiente paso. No necesitas subir documentos.{% else %}En el siguiente paso podrás adjuntar los documentos de tu solicitud.{% endif %}</p><button class="btn-solid">{% if tramite.servicio_procuraduria == 'psicologia' %}Elegir mi cita{% else %}Continuar a documentos{% endif %} <span aria-hidden="true">→</span></button></div>
+      </section>
     </form>
-  </section>
 </main>
 {% endblock %}

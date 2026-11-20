@@ -616,6 +616,7 @@ class ProcuraduriaTests(TestCase):
         self.admin = Ciudadano.objects.create_superuser('SOCIALADMIN', 'socialadmin@example.com', nombre='Responsable')
         self.estudio = Tramite.objects.get(servicio_procuraduria='socioeconomico')
         self.psico = Tramite.objects.get(servicio_procuraduria='psicologia')
+        HorarioSocial.objects.filter(tramite=self.psico).delete()
         self.sede = SedeSocial.objects.create(nombre='Sede de prueba', direccion='Direccion de prueba')
         self.hoy = date(2026, 11, 18)
         self.ahora = datetime(2026, 11, 18, 9, tzinfo=ZoneInfo('America/Mexico_City'))
@@ -713,6 +714,36 @@ class ProcuraduriaTests(TestCase):
         self.assertEqual(self.client.get(reverse('iniciar_tramite', args=[self.psico.pk]),
                                         {'persona': solicitud.persona_social_id}).status_code, 404)
         self.assertEqual(PersonaSocial.objects.count(), 1)
+
+    def test_psicologia_precarga_localidad_y_agenda_sin_documentos(self):
+        from importlib import import_module
+        from django.apps import apps
+        from django.db import connection
+        from .models import HorarioSocial
+        from .procuraduria import _turnos
+        self.user.municipio = self.user.estado_domicilio = ''
+        self.user.save()
+        inicio = self.client.get(reverse('iniciar_tramite', args=[self.psico.pk]))
+        self.assertContains(inicio, 'Atizapán de Zaragoza')
+        self.assertContains(inicio, 'Estado de México')
+        self.assertContains(inicio, 'No necesitas subir documentos')
+        HorarioSocial.objects.filter(tramite=self.psico).delete()
+        migracion = import_module('ciudadanos.migrations.0017_horarios_psicologia')
+        editor = connection.schema_editor()
+        migracion.habilitar_psicologia(apps, editor)
+        migracion.habilitar_psicologia(apps, editor)
+        horarios = HorarioSocial.objects.filter(tramite=self.psico)
+        self.assertEqual(horarios.count(), 5)
+        sede = horarios.first().sede
+        self.assertEqual(list(_turnos(self.psico, sede, self.hoy)), [(time(9 + (i * 45) // 60, (i * 45) % 60), 1) for i in range(9)])
+        self.assertEqual(list(_turnos(self.psico, sede, date(2026, 11, 21))), [])
+        solicitud = self.iniciar(self.psico)
+        self.assertEqual(solicitud.estado, 'Aprobado')
+        self.assertFalse(solicitud.requisitos_sociales.exists())
+        agenda = reverse('social_agenda', args=[solicitud.pk])
+        self.assertContains(self.client.get(agenda), '09:45')
+        reserva = self.client.post(agenda, {'sede': sede.pk, 'turno': '2026-11-18|12:00:00'})
+        self.assertRedirects(reserva, reverse('social_ticket', args=[solicitud.cita.pk]))
 
     def test_modalidades_validacion_simple_y_reutilizacion(self):
         from .models import DocumentoSocial

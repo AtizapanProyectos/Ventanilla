@@ -66,6 +66,8 @@ class IdentificacionForm(forms.Form):
         if psicologia:
             self.fields.pop('modalidad')
             self.fields.pop('referencia')
+        else:
+            self.fields['referencia'].required = True
 
     def clean_fecha_nacimiento(self):
         valor = self.cleaned_data['fecha_nacimiento']
